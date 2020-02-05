@@ -59,8 +59,8 @@ const OjoAgent& OjoState::getOjoAgent() const
  * @param verbosity Verbosity set by CLI
  * @param json      True to get output in JSON format
  */
-OjoCliOptions::OjoCliOptions(int verbosity, bool json) :
-    verbosity(verbosity), json(json)
+OjoCliOptions::OjoCliOptions(int verbosity, bool json, int ignoreFilesWithMimeType) :
+    verbosity(verbosity), json(json), ignoreFilesWithMimeType(ignoreFilesWithMimeType)
 {
 }
 
@@ -68,7 +68,7 @@ OjoCliOptions::OjoCliOptions(int verbosity, bool json) :
  * @brief Default constructor for OjoCliOptions
  */
 OjoCliOptions::OjoCliOptions() :
-    verbosity(0), json(false)
+    verbosity(0), json(false), ignoreFilesWithMimeType(0)
 {
 }
 
@@ -98,3 +98,13 @@ bool OjoCliOptions::doJsonOutput() const
 {
   return json;
 }
+
+/**
+ * @brief Check if ignoreFilesWithMimeType JSON output is required
+ * @return True if required, else false
+ */
+bool OjoCliOptions::doignoreFilesWithMimeType() const
+{
+  return ignoreFilesWithMimeType;
+}
+

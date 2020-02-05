@@ -469,10 +469,10 @@ typedef struct licensetext licText_t;
  * License scan result
  */
 struct scanResults {
-    int score;        ///< License match score
+  int score;        ///< License match score
   int kwbm;
   int size;
-    int flag;         ///< Flags
+  int flag;         ///< Flags
   int dataOffset;
   char fullpath[myBUFSIZ];
   char linkname[16];

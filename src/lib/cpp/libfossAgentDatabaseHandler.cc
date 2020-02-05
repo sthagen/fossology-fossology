@@ -99,9 +99,9 @@ char* fo::AgentDatabaseHandler::getPFileNameForFileId(unsigned long pfileId) con
  * \return Vector of pfile ids in given upload id
  * \sa queryFileIdsForUpload()
  */
-std::vector<unsigned long> fo::AgentDatabaseHandler::queryFileIdsVectorForUpload(int uploadId) const
+std::vector<unsigned long> fo::AgentDatabaseHandler::queryFileIdsVectorForUpload(int uploadId, int ignoreFilesWithMimeType) const
 {
-  QueryResult queryResult(queryFileIdsForUpload(dbManager.getStruct_dbManager(), uploadId));
+  QueryResult queryResult(queryFileIdsForUpload(dbManager.getStruct_dbManager(), uploadId, ignoreFilesWithMimeType));
   return queryResult.getSimpleResults(0, fo::stringToUnsignedLong);
 }
 

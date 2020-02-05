@@ -110,7 +110,7 @@ int matchPFileWithLicenses(MonkState* state, long pFileId, const Licenses* licen
   file.id = pFileId;
 
   file.fileName = getFileName(state, pFileId);
-
+  
   int result = 0;
   if (file.fileName != NULL) {
     result = readTokensFromFile(file.fileName, &(file.tokens), DELIMITERS);

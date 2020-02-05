@@ -69,9 +69,8 @@ char* getUploadTreeTableName(fo_dbManager* dbManager, int uploadId)
  * \param uploadId  ID of the upload
  * \return File IDs for the given upload
  */
-PGresult* queryFileIdsForUpload(fo_dbManager* dbManager, int uploadId)
+PGresult* queryFileIdsForUpload(fo_dbManager* dbManager, int uploadId, int ignoreFilesWithMimeType)
 {
-
   PGresult* result;
 
   char* uploadtreeTableName = getUploadTreeTableName(dbManager, uploadId);
@@ -80,8 +79,18 @@ PGresult* queryFileIdsForUpload(fo_dbManager* dbManager, int uploadId)
   {
     char* queryName = g_strdup_printf("queryFileIdsForUpload.%s", uploadtreeTableName);
     char* sql;
-    sql = g_strdup_printf("select distinct(pfile_fk) from %s where upload_fk=$1 and (ufile_mode&x'3C000000'::int)=0",
+    if (ignoreFilesWithMimeType)
+    {
+      sql = g_strdup_printf("select distinct(pfile_fk) from %s join pfile on pfile_pk=pfile_fk where upload_fk=$1 and (ufile_mode&x'3C000000'::int)=0 \
+        AND (pfile_mimetypefk not in (SELECT mimetype_pk from mimetype where mimetype_name=any(string_to_array(( \
+        SELECT conf_value from sysconfig where variablename='SkipFiles'),','))))",
       uploadtreeTableName);
+    }
+    else
+    {
+      sql = g_strdup_printf("select distinct(pfile_fk) from %s join pfile on pfile_pk=pfile_fk where upload_fk=$1 and (ufile_mode&x'3C000000'::int)=0",
+      uploadtreeTableName);
+    }
 
     result = fo_dbManager_ExecPrepared(
       fo_dbManager_PrepareStamement(
@@ -97,11 +106,22 @@ PGresult* queryFileIdsForUpload(fo_dbManager* dbManager, int uploadId)
   }
   else
   {
-
-    result = fo_dbManager_Exec_printf(dbManager,
-      "select distinct(pfile_fk) from %s where (ufile_mode&x'3C000000'::int)=0",
-      uploadtreeTableName
-    );
+    if(ignoreFilesWithMimeType)
+    {
+      result = fo_dbManager_Exec_printf(dbManager,
+        "select distinct(pfile_fk) from %s join pfile on pfile_pk=pfile_fk where (ufile_mode&x'3C000000'::int)=0 \
+        AND (pfile_mimetypefk not in (SELECT mimetype_pk from mimetype where mimetype_name=any(string_to_array(( \
+        SELECT conf_value from sysconfig where variablename='SkipFiles'),','))))",
+        uploadtreeTableName
+      );
+    }
+    else
+    {
+      result = fo_dbManager_Exec_printf(dbManager,
+        "select distinct(pfile_fk) from %s join pfile on pfile_pk=pfile_fk where (ufile_mode&x'3C000000'::int)=0",
+        uploadtreeTableName
+      );
+    }
   }
 
   g_free(uploadtreeTableName);
@@ -118,13 +138,13 @@ PGresult* queryFileIdsForUpload(fo_dbManager* dbManager, int uploadId)
 char* queryPFileForFileId(fo_dbManager* dbManager, long fileId)
 {
   PGresult* fileNameResult = fo_dbManager_ExecPrepared(
-    fo_dbManager_PrepareStamement(
-      dbManager,
-      "queryPFileForFileId",
-      "select pfile_sha1 || '.' || pfile_md5 ||'.'|| pfile_size AS pfilename from pfile where pfile_pk=$1",
-      long),
-    fileId
-  );
+     fo_dbManager_PrepareStamement(
+       dbManager,
+       "queryPFileForFileId",
+       "select pfile_sha1 || '.' || pfile_md5 ||'.'|| pfile_size AS pfilename from pfile where pfile_pk=$1",
+       long),
+       fileId
+    );
 
   if (PQntuples(fileNameResult) == 0)
   {
@@ -414,4 +434,43 @@ FUNCTION char* GetUploadtreeTableName(PGconn* pgConn, int upload_pk)
   PQclear(result);
 
   return (uploadtree_tablename);
+}
+
+
+char* checkDuplicateReq(char *sqlbuf, int length, int uploadPk, int agentPk)
+{
+    /* if it is duplicate request (same upload_pk, sameagent_fk), then do not repeat */
+    snprintf(sqlbuf, length,
+        "select ars_pk from nomos_ars,agent \
+                where agent_pk=agent_fk and ars_success=true \
+                  and upload_fk='%d' and agent_fk='%d'",
+        uploadPk, agentPk);
+    return sqlbuf;
+}
+
+char* getSelectedPFiles(char *sqlbuf, int length, int uploadPk, int agentPk, int ignoreFilesWithMimeType)
+{
+  /* retrieve the records to process */
+  if (ignoreFilesWithMimeType)
+  {
+    snprintf(sqlbuf, length,
+     "SELECT pfile_pk, pfile_sha1 || '.' || pfile_md5 || '.' || pfile_size AS pfilename \
+        FROM (SELECT distinct(pfile_fk) AS PF FROM uploadtree WHERE upload_fk='%d' and (ufile_mode&x'3C000000'::int)=0) as SS \
+        left outer join license_file on (PF=pfile_fk and agent_fk='%d') inner join pfile on PF=pfile_pk \
+        WHERE (fl_pk IS null or agent_fk <>'%d') \
+        AND (pfile_mimetypefk not in ( \
+            SELECT mimetype_pk from mimetype where mimetype_name=any(string_to_array(( \
+            SELECT conf_value from sysconfig where variablename='SkipFiles'),','))))",
+    uploadPk, agentPk, agentPk);
+  }
+  else
+  {
+    snprintf(sqlbuf, length,
+      "SELECT pfile_pk, pfile_sha1 || '.' || pfile_md5 || '.' || pfile_size AS pfilename \
+          FROM (SELECT distinct(pfile_fk) AS PF FROM uploadtree WHERE upload_fk='%d' and (ufile_mode&x'3C000000'::int)=0) as SS \
+          left outer join license_file on (PF=pfile_fk and agent_fk='%d') inner join pfile on PF=pfile_pk \
+         WHERE fl_pk IS null or agent_fk <>'%d'",
+         uploadPk, agentPk, agentPk);
+  }
+  return sqlbuf;
 }

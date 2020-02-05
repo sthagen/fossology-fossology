@@ -37,6 +37,7 @@ private:
   int verbosity;                        /**< The verbosity level */
   unsigned int optType;                 /**< Scan type (2 => url, 4 => email, 8 => author, 16 => ecc) */
   bool json;                            /**< Whether to generate JSON output */
+  int ignoreFilesWithMimeType;
   std::list<unptr::shared_ptr<scanner>> cliScanners; /**< List of available scanners */
 
 public:
@@ -45,11 +46,12 @@ public:
   unsigned int getOptType() const;
 
   bool doJsonOutput() const;
+  int doignoreFilesWithMimeType() const;
 
   void addScanner(scanner* regexDesc);
   std::list<unptr::shared_ptr<scanner>> extractScanners();
 
-  CliOptions(int verbosity, unsigned int type, bool json);
+  CliOptions(int verbosity, unsigned int type, bool json, int ignoreFilesWithMimeType);
   CliOptions();
 };
 

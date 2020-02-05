@@ -38,9 +38,9 @@ OjosDatabaseHandler::OjosDatabaseHandler(DbManager dbManager) :
  * @param uploadId Upload ID to be queried
  * @return List of all pfiles for the given upload
  */
-vector<unsigned long> OjosDatabaseHandler::queryFileIdsForUpload(int uploadId)
+vector<unsigned long> OjosDatabaseHandler::queryFileIdsForUpload(int uploadId, int ignoreFilesWithMimeType)
 {
-  return queryFileIdsVectorForUpload(uploadId);
+  return queryFileIdsVectorForUpload(uploadId, ignoreFilesWithMimeType);
 }
 
 /**
@@ -49,21 +49,40 @@ vector<unsigned long> OjosDatabaseHandler::queryFileIdsForUpload(int uploadId)
  * @param agentId  ID of the agent
  * @return List of all pfiles for the given upload
  */
-vector<unsigned long> OjosDatabaseHandler::queryFileIdsForScan(int uploadId, int agentId)
+vector<unsigned long> OjosDatabaseHandler::queryFileIdsForScan(int uploadId, int agentId, int  ignoreFilesWithMimeType)
 {
   string uploadtreeTableName = queryUploadTreeTableName(uploadId);
+ 
+  if ( ignoreFilesWithMimeType )
+  { 
+    QueryResult queryResult = dbManager.execPrepared(
+      fo_dbManager_PrepareStamement(dbManager.getStruct_dbManager(),
+        ("pfileForUploadFilterAgent" + uploadtreeTableName).c_str(),
+        ("SELECT distinct(ut.pfile_fk) FROM " + uploadtreeTableName + " AS ut "
+        "LEFT JOIN license_file AS lf ON ut.pfile_fk = lf.pfile_fk "
+        "AND lf.agent_fk = $2 JOIN pfile p on ut.pfile_fk=p.pfile_pk WHERE lf.pfile_fk IS NULL "
+        "AND ut.upload_fk = $1 AND (ut.ufile_mode&x'3C000000'::int)=0 "
+        "AND (pfile_mimetypefk not in ( "
+        "SELECT mimetype_pk from mimetype where mimetype_name=any(string_to_array(( "
+        "SELECT conf_value from sysconfig where variablename='SkipFiles'),','))));").c_str(),
+        int, int),
+      uploadId, agentId);
+    return queryResult.getSimpleResults(0, fo::stringToUnsignedLong);
+  }
+  else
+  {
+   QueryResult queryResult = dbManager.execPrepared(
+      fo_dbManager_PrepareStamement(dbManager.getStruct_dbManager(),
+        ("pfileForUploadFilterAgent" + uploadtreeTableName).c_str(),
+        ("SELECT distinct(ut.pfile_fk) FROM " + uploadtreeTableName + " AS ut "
+        "LEFT JOIN license_file AS lf ON ut.pfile_fk = lf.pfile_fk "
+        "AND lf.agent_fk = $2 WHERE lf.pfile_fk IS NULL "
+        "AND ut.upload_fk = $1 AND (ut.ufile_mode&x'3C000000'::int)=0;").c_str(),
+        int, int),
+      uploadId, agentId);
+    return queryResult.getSimpleResults(0, fo::stringToUnsignedLong);
+  }
 
-  QueryResult queryResult = dbManager.execPrepared(
-    fo_dbManager_PrepareStamement(dbManager.getStruct_dbManager(),
-      ("pfileForUploadFilterAgent" + uploadtreeTableName).c_str(),
-      ("SELECT distinct(ut.pfile_fk) FROM " + uploadtreeTableName + " AS ut "
-      "LEFT JOIN license_file AS lf ON ut.pfile_fk = lf.pfile_fk "
-      "AND lf.agent_fk = $2 WHERE lf.pfile_fk IS NULL "
-      "AND ut.upload_fk = $1 AND (ut.ufile_mode&x'3C000000'::int)=0;").c_str(),
-      int, int),
-    uploadId, agentId);
-
-  return queryResult.getSimpleResults(0, fo::stringToUnsignedLong);
 }
 
 /**

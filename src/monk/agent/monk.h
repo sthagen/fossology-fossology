@@ -58,6 +58,7 @@ typedef struct {
   int verbosity;
   char* knowledgebaseFile;
   int json;
+  int ignoreFilesWithMimeType;
   void* ptr;
 } MonkState;
 

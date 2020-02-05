@@ -117,6 +117,9 @@ bool parseCliOptions(int argc, char** argv, CliOptions& dest,
           "json,J", "output JSON"
         )
         (
+          "ignoreFilesWithMimeType,I", "ignoreFilesWithMimeType"
+        )
+        (
           "config,c", boost::program_options::value<string>(), "path to the sysconfigdir"
         )
         (
@@ -161,8 +164,9 @@ bool parseCliOptions(int argc, char** argv, CliOptions& dest,
 
     unsigned long verbosity = vm.count("verbose");
     bool json = vm.count("json") > 0 ? true : false;
+    int ignoreFilesWithMimeType = vm.count("ignoreFilesWithMimeType") > 0 ? 1 : 0;
 
-    dest = CliOptions(verbosity, type, json);
+    dest = CliOptions(verbosity, type, json, ignoreFilesWithMimeType);
 
     if (vm.count("regex"))
     {
@@ -402,9 +406,9 @@ void matchPFileWithLicenses(CopyrightState const& state, int agentId, unsigned l
  * \param databaseHandler Database handler object
  * \return True when upload is processed
  */
-bool processUploadId(const CopyrightState& state, int agentId, int uploadId, CopyrightDatabaseHandler& databaseHandler)
+bool processUploadId(const CopyrightState& state, int agentId, int uploadId, CopyrightDatabaseHandler& databaseHandler, int ignoreFilesWithMimeType)
 {
-  vector<unsigned long> fileIds = databaseHandler.queryFileIdsForUpload(agentId, uploadId);
+  vector<unsigned long> fileIds = databaseHandler.queryFileIdsForUpload(agentId, uploadId, ignoreFilesWithMimeType);
 
 #pragma omp parallel
   {

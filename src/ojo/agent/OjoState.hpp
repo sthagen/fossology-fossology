@@ -36,12 +36,14 @@ class OjoCliOptions
   private:
     int verbosity;  /**< The verbosity level */
     bool json;      /**< Whether to generate JSON output */
+    int ignoreFilesWithMimeType; /* exclude files as defined in mimetype */
 
   public:
     bool isVerbosityDebug() const;
     bool doJsonOutput() const;
+    bool doignoreFilesWithMimeType() const;
 
-    OjoCliOptions(int verbosity, bool json);
+    OjoCliOptions(int verbosity, bool json, int ignoreFilesWithMimeType);
     OjoCliOptions();
 };
 

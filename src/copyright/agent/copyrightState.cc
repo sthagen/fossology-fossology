@@ -54,10 +54,11 @@ const std::list<unptr::shared_ptr<scanner>>& CopyrightState::getScanners() const
  * \param type      Type set by CLI
  * \param json      True to get output in JSON format
  */
-CliOptions::CliOptions(int verbosity, unsigned int type, bool json) :
+CliOptions::CliOptions(int verbosity, unsigned int type, bool json, int ignoreFilesWithMimeType) :
   verbosity(verbosity),
   optType(type),
   json(json),
+  ignoreFilesWithMimeType(ignoreFilesWithMimeType),
   cliScanners()
 {
 }
@@ -68,6 +69,7 @@ CliOptions::CliOptions(int verbosity, unsigned int type, bool json) :
 CliOptions::CliOptions() :
   verbosity(0),
   optType(ALL_TYPES),
+  ignoreFilesWithMimeType(0),
   cliScanners()
 {
 }
@@ -126,3 +128,11 @@ bool CliOptions::doJsonOutput() const
   return json;
 }
 
+/**
+ * \brief Check if JSON output is required
+ * \return True if required, else false
+ */
+int CliOptions::doignoreFilesWithMimeType() const
+{
+  return ignoreFilesWithMimeType;
+}

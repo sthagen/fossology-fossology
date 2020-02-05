@@ -313,11 +313,42 @@ bool CopyrightDatabaseHandler::createTableClearing() const
  * \param uploadId Upload id to scan for files
  * \return List of pfiles on which the given agent has no findings
  */
-std::vector<unsigned long> CopyrightDatabaseHandler::queryFileIdsForUpload(int agentId, int uploadId)
+std::vector<unsigned long> CopyrightDatabaseHandler::queryFileIdsForUpload(int agentId, int uploadId, int ignoreFilesWithMimeType)
 {
   std::string uploadTreeTableName = queryUploadTreeTableName(uploadId);
+  if (ignoreFilesWithMimeType)
+  {
+    fo_dbManager_PreparedStatement* preparedStatement =
+      fo_dbManager_PrepareStamement(dbManager.getStruct_dbManager(),
+          ("queryFileIdsForUpload:" IDENTITY "Agent" + uploadTreeTableName).c_str(),
+          ("SELECT pfile_pk"
+            " FROM ("
+            "  SELECT distinct(pfile_fk) AS PF"
+            "  FROM " + uploadTreeTableName +
+            "  WHERE upload_fk = $1 and (ufile_mode&x'3C000000'::int)=0"
+            " ) AS SS "
+          "LEFT OUTER JOIN " IDENTITY " ON (PF = pfile_fk AND agent_fk = $2) "
+#ifdef IDENTITY_COPYRIGHT
+          "LEFT OUTER JOIN author AS au ON (PF = au.pfile_fk AND au.agent_fk = $2) "
+#endif
+          "INNER JOIN pfile ON (PF = pfile_pk) "
+#ifdef IDENTITY_COPYRIGHT
+          "WHERE copyright.copyright_pk IS NULL AND au.author_pk IS NULL "
+#else
+          "WHERE (" IDENTITY "_pk IS NULL OR agent_fk <> $2) "
+#endif
+          "AND (pfile_mimetypefk not in ( "
+          "SELECT mimetype_pk from mimetype where mimetype_name=any(string_to_array(( "
+          "SELECT conf_value from sysconfig where variablename='SkipFiles'),','))));").c_str(),
+          int, int);
+  QueryResult queryResult = dbManager.execPrepared(preparedStatement,
+      uploadId, agentId);
 
-  fo_dbManager_PreparedStatement* preparedStatement =
+  return queryResult.getSimpleResults<unsigned long>(0, fo::stringToUnsignedLong);
+  }
+  else
+  {
+    fo_dbManager_PreparedStatement* preparedStatement =
       fo_dbManager_PrepareStamement(dbManager.getStruct_dbManager(),
           ("queryFileIdsForUpload:" IDENTITY "Agent" + uploadTreeTableName).c_str(),
           ("SELECT pfile_pk"
@@ -341,6 +372,8 @@ std::vector<unsigned long> CopyrightDatabaseHandler::queryFileIdsForUpload(int a
       uploadId, agentId);
 
   return queryResult.getSimpleResults<unsigned long>(0, fo::stringToUnsignedLong);
+  }
+
 }
 
 /**

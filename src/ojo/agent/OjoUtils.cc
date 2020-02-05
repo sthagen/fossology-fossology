@@ -110,10 +110,10 @@ void bail(int exitval)
  * @return True in case of successful scan, false otherwise.
  */
 bool processUploadId(const OjoState &state, int uploadId,
-    OjosDatabaseHandler &databaseHandler)
+    OjosDatabaseHandler &databaseHandler, int ignoreFilesWithMimeType)
 {
   vector<unsigned long> fileIds = databaseHandler.queryFileIdsForScan(
-      uploadId, state.getAgentId());
+      uploadId, state.getAgentId(), ignoreFilesWithMimeType);
   char const *repoArea = "files";
 
   bool errors = false;
@@ -254,6 +254,9 @@ bool parseCliOptions(int argc, char **argv, OjoCliOptions &dest,
       "json,J", "output JSON"
     )
     (
+      "ignoreFilesWithMimeType,I", "ignoreFilesWithMimeType"
+    )
+    (
       "config,c",
       boost::program_options::value<string>(),
       "path to the sysconfigdir"
@@ -308,8 +311,9 @@ bool parseCliOptions(int argc, char **argv, OjoCliOptions &dest,
 
     unsigned long verbosity = vm.count("verbose");
     bool json = vm.count("json") > 0 ? true : false;
+    int ignoreFilesWithMimeType = vm.count("ignoreFilesWithMimeType") > 0 ? 1 : 0;
 
-    dest = OjoCliOptions(verbosity, json);
+    dest = OjoCliOptions(verbosity, json, ignoreFilesWithMimeType);
 
     if (vm.count("directory"))
     {
