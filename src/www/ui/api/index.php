@@ -1,6 +1,6 @@
 <?php
 /***************************************************************
- Copyright (C) 2017-2018 Siemens AG
+ Copyright (C) 2017-2018,2021 Siemens AG
  Copyright (C) 2021 Orange by Piotr Pszczola <piotr.pszczola@orange.com>
 
  This program is free software; you can redistribute it and/or
@@ -122,6 +122,7 @@ $app->group(VERSION_1 . 'users',
   function (){
     $this->get('[/{id:\\d+}]', UserController::class . ':getUsers');
     $this->delete('/{id:\\d+}', UserController::class . ':deleteUser');
+    $this->get('/self', UserController::class . ':getCurrentUser');
     $this->any('/{params:.*}', BadRequestController::class);
   });
 
@@ -181,9 +182,18 @@ $app->group(VERSION_1 . 'filesearch',
 /////////////////////////LICENSE SEARCH/////////////////
 $app->group(VERSION_1 . 'license',
   function (){
-    $this->get('', LicenseController::class . ':getLicense');
+    $this->get('', LicenseController::class . ':getAllLicenses');
+    $this->post('', LicenseController::class . ':createLicense');
+    $this->get('/{shortname:.+}', LicenseController::class . ':getLicense');
+    $this->patch('/{shortname:.+}', LicenseController::class . ':updateLicense');
     $this->any('/{params:.*}', BadRequestController::class);
   });
+
+// Catch all routes
+$app->map(['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], '/{routes:.+}', function($req, $res) {
+  $handler = $this->get('notFoundHandler');
+  return $handler($req, $res);
+});
 
 $app->run();
 
