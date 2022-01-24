@@ -1959,6 +1959,7 @@
   $Schema["TABLE"]["users"]["user_pk"]["ADD"] = "ALTER TABLE \"users\" ADD COLUMN \"user_pk\" int4 DEFAULT nextval('users_user_pk_seq'::regclass)";
   $Schema["TABLE"]["users"]["user_pk"]["ALTER"] = "ALTER TABLE \"users\" ALTER COLUMN \"user_pk\" SET NOT NULL, ALTER COLUMN \"user_pk\" SET DEFAULT nextval('users_user_pk_seq'::regclass)";
 
+
   $Schema["TABLE"]["users"]["user_name"]["DESC"] = "";
   $Schema["TABLE"]["users"]["user_name"]["ADD"] = "ALTER TABLE \"users\" ADD COLUMN \"user_name\" text";
   $Schema["TABLE"]["users"]["user_name"]["ALTER"] = "ALTER TABLE \"users\" ALTER COLUMN \"user_name\" SET NOT NULL";
@@ -1971,9 +1972,17 @@
   $Schema["TABLE"]["users"]["default_folder_fk"]["ADD"] = "ALTER TABLE \"users\" ADD COLUMN \"default_folder_fk\" int4 DEFAULT -1";
   $Schema["TABLE"]["users"]["default_folder_fk"]["ALTER"] = "ALTER TABLE \"users\" ALTER COLUMN \"default_folder_fk\" SET NOT NULL";
 
+  $Schema["TABLE"]["users"]["last_connection"]["DESC"] = "";
+  $Schema["TABLE"]["users"]["last_connection"]["ADD"] = "ALTER TABLE \"users\" ADD COLUMN \"last_connection\" timestamptz";
+  $Schema["TABLE"]["users"]["last_connection"]["ALTER"] = "ALTER TABLE \"users\" ALTER COLUMN \"last_connection\" DROP NOT NULL";
+
   $Schema["TABLE"]["users"]["user_desc"]["DESC"] = "";
   $Schema["TABLE"]["users"]["user_desc"]["ADD"] = "ALTER TABLE \"users\" ADD COLUMN \"user_desc\" text";
   $Schema["TABLE"]["users"]["user_desc"]["ALTER"] = "ALTER TABLE \"users\" ALTER COLUMN \"user_desc\" DROP NOT NULL";
+
+  $Schema["TABLE"]["users"]["user_status"]["DESC"] = "COMMENT ON COLUMN \"users\".\"user_status\" IS 'active, incactive, anonymized'";
+  $Schema["TABLE"]["users"]["user_status"]["ADD"] = "ALTER TABLE \"users\" ADD COLUMN \"user_status\" text DEFAULT 'active'";
+  $Schema["TABLE"]["users"]["user_status"]["ALTER"] = "ALTER TABLE \"users\" ALTER COLUMN \"user_status\" DROP NOT NULL, ALTER COLUMN \"user_status\" SET DEFAULT 'active'";
 
   $Schema["TABLE"]["users"]["user_seed"]["DESC"] = "";
   $Schema["TABLE"]["users"]["user_seed"]["ADD"] = "ALTER TABLE \"users\" ADD COLUMN \"user_seed\" text";
@@ -2107,6 +2116,9 @@
   $Schema["TABLE"]["report_info"]["ri_unifiedcolumns"]["ADD"] = "ALTER TABLE \"report_info\" ADD COLUMN \"ri_unifiedcolumns\" json";
   $Schema["TABLE"]["report_info"]["ri_unifiedcolumns"]["ALTER"] = "ALTER TABLE \"report_info\" ALTER COLUMN \"ri_unifiedcolumns\" DROP NOT NULL";
 
+  $Schema["TABLE"]["report_info"]["ri_globaldecision"]["DESC"] = "";
+  $Schema["TABLE"]["report_info"]["ri_globaldecision"]["ADD"] = "ALTER TABLE \"report_info\" ADD COLUMN \"ri_globaldecision\" int2 DEFAULT 1";
+  $Schema["TABLE"]["report_info"]["ri_globaldecision"]["ALTER"] = "ALTER TABLE \"report_info\" ALTER COLUMN \"ri_globaldecision\" SET NOT NULL, ALTER COLUMN \"ri_globaldecision\" SET DEFAULT 1";
 
   $Schema["VIEW"]["license_file_ref"] = "CREATE VIEW \"license_file_ref\" AS SELECT license_ref.rf_fullname, license_ref.rf_shortname, license_ref.rf_pk, license_file.fl_end_byte, license_file.rf_match_pct, license_file.rf_timestamp, license_file.fl_start_byte, license_file.fl_ref_end_byte, license_file.fl_ref_start_byte, license_file.fl_pk, license_file.agent_fk, license_file.pfile_fk FROM (license_file JOIN license_ref ON ((license_file.rf_fk = license_ref.rf_pk)));";
 
