@@ -1,4 +1,4 @@
-# Copyright (C) Siemens AG 2017-2021
+# Copyright (C) Siemens AG 2017-2022
 # Copyright (C) 2021 Orange by Piotr Pszczola <piotr.pszczola@orange.com>
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,7 +15,7 @@ openapi: 3.0.2
 info:
   title: FOSSology API
   description: Automate your fossology instance using REST API
-  version: 1.4.1
+  version: 1.4.3
   contact:
     email: fossology@fossology.org
   license:
@@ -26,6 +26,7 @@ servers:
     description: Localhost instance
 security:
   - bearerAuth: []
+  - oauth: []
 externalDocs:
   description: Basic guide
   url: https://github.com/fossology/fossology/wiki/FOSSology-REST-API
@@ -151,13 +152,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HeathInfo'
+                $ref: '#/components/schemas/HealthInfo'
         '503':
           description: The API is not unavailable
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HeathInfo'
+                $ref: '#/components/schemas/HealthInfo'
 
   /uploads/{id}:
     parameters:
@@ -541,6 +542,7 @@ paths:
               - ojo
               - reportImport
               - reso
+              - scancode
           uniqueItems: true
         style: form
         explode: false
@@ -1127,6 +1129,7 @@ paths:
               - spdx2tv
               - readmeoss
               - unifiedreport
+              - clixml
         - name: groupName
           description: The group name to chose while generating a report
           in: header
@@ -1174,7 +1177,11 @@ paths:
               schema:
                 type: string
                 format: binary
-            application/zip:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            application/xml:
               schema:
                 type: string
                 format: binary
@@ -1449,6 +1456,14 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: "Token from FOSSology"
+    oauth:
+      description: "Machine-2-Machine communication from oauth"
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: "https://api.example.com/oauth2/authorize"
+          scopes: {}
   schemas:
     SearchResults:
       type: object
@@ -1485,6 +1500,8 @@ components:
           $ref: '#/components/schemas/LicenseDecider'
         reuse:
           $ref: '#/components/schemas/Reuser'
+        scancode:
+          $ref: '#/components/schemas/Scancode'
     Upload:
       type: object
       properties:
@@ -1697,6 +1714,21 @@ components:
       required:
         - reuse_upload
         - reuse_group
+    Scancode:
+      type: object
+      properties:
+        license:
+          type: boolean
+          description: A full comparison between the database of licenses present in ScanCode and the code uploaded by users based approach. 
+        copyright:
+          type: boolean
+          description: Copyright along with copyright holder/author information.
+        email:
+          type: boolean
+          description: Email(s) present in the scan code file.
+        url:
+          type: boolean
+          description: URL(s) present in the scan code file.
     Folder:
       type: object
       properties:
@@ -2018,7 +2050,38 @@ components:
               type: string
               description: Link to license
           description: Licensing of API
-    HeathInfo:
+        fossology:
+          type: object
+          description: Information about FOSSology server. Values can be null.
+          properties:
+            version:
+              type: string
+              description: Version of the FOSSology server
+              nullable: true
+              example: "4.0.0"
+            branchName:
+              type: string
+              description: Branch deployed on the FOSSology server
+              nullable: true
+              example: master
+            commitHash:
+              type: string
+              description: Hash of commit deployed on the FOSSology server
+              nullable: true
+              example: "306260"
+            commitDate:
+              type: string
+              description: |
+                Date of commit deployed on the FOSSology server in
+                ISO8601 format
+              nullable: true
+              example: "2022-01-05T22:03:00+05:30"
+            buildDate:
+              type: string
+              description: Date on which packages were built in ISO8601 format
+              nullable: true
+              example: "2022-01-07T11:13:00+05:30"
+    HealthInfo:
       description: Health status of server
       type: object
       properties:

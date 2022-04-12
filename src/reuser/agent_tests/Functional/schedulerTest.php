@@ -123,7 +123,7 @@ class SchedulerTest extends \PHPUnit\Framework\TestCase
   /**
    * @brief Setup test env
    */
-  protected function setUp()
+  protected function setUp() : void
   {
     $this->testDb = new TestPgDb("reuserSched");
     $this->dbManager = $this->testDb->getDbManager();
@@ -149,7 +149,7 @@ class SchedulerTest extends \PHPUnit\Framework\TestCase
   /**
    * @brief Tear down test env
    */
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->testDb->fullDestruct();
     $this->testDb = null;
@@ -193,7 +193,8 @@ class SchedulerTest extends \PHPUnit\Framework\TestCase
     $this->testDb->createSequences(array('agent_agent_pk_seq','pfile_pfile_pk_seq',
       'upload_upload_pk_seq','nomos_ars_ars_pk_seq','license_file_fl_pk_seq',
       'license_ref_rf_pk_seq','license_ref_bulk_lrb_pk_seq',
-      'clearing_decision_clearing_decision_pk_seq','clearing_event_clearing_event_pk_seq','report_info_pk_seq'),false);
+      'clearing_decision_clearing_decision_pk_seq',
+      'clearing_event_clearing_event_pk_seq','report_info_pk_seq'),false);
     $this->testDb->createViews(array('license_file_ref'),false);
     $this->testDb->createConstraints(array('agent_pkey','pfile_pkey',
       'upload_pkey_idx','FileLicense_pkey','clearing_event_pkey'),false);
@@ -208,6 +209,8 @@ class SchedulerTest extends \PHPUnit\Framework\TestCase
     $this->testDb->insertData_license_ref(80);
 
     $this->testDb->resetSequenceAsMaxOf('agent_agent_pk_seq', 'agent', 'agent_pk');
+
+    $this->testDb->setupSysconfig();
   }
 
   /**

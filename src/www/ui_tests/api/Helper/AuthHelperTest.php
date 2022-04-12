@@ -79,7 +79,7 @@ class AuthHelperTest extends \PHPUnit\Framework\TestCase
    * @brief Setup test objects
    * @see PHPUnit_Framework_TestCase::setUp()
    */
-  protected function setUp()
+  protected function setUp() : void
   {
     $this->userDao = M::mock(UserDao::class);
     $this->session = M::mock(Session::class);
@@ -96,7 +96,7 @@ class AuthHelperTest extends \PHPUnit\Framework\TestCase
    * @brief Remove test objects
    * @see PHPUnit_Framework_TestCase::tearDown()
    */
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->addToAssertionCount(
       \Hamcrest\MatcherAssert::getCount() - $this->assertCountBefore);
@@ -142,6 +142,7 @@ class AuthHelperTest extends \PHPUnit\Framework\TestCase
 
     $expectedReturn = true;
 
+    $GLOBALS['SysConf'] = ['AUTHENTICATION' => ['resttoken' => 'token']];
     $actualReturn = $this->authHelper->verifyAuthToken($authHeader, $userId,
       $tokenScope);
 
@@ -188,6 +189,7 @@ class AuthHelperTest extends \PHPUnit\Framework\TestCase
 
     $expectedReturn = new Info(403, "User inactive.", InfoType::ERROR);
 
+    $GLOBALS['SysConf'] = ['AUTHENTICATION' => ['resttoken' => 'token']];
     $actualReturn = $this->authHelper->verifyAuthToken($authHeader, $userId,
       $tokenScope);
 
