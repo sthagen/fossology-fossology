@@ -611,6 +611,52 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+          
+  /uploads/{id}/copyrights:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+    get:
+      operationId: getCopyrightsByUploadId
+      tags:
+        - Upload
+      summary: Get copyrights found on the upload
+      description:
+        Returns the list of copyrights found on the requested upload.
+      responses:
+        '200':
+          description: Get copyrights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadCopyrights'
+        '503':
+          description: >
+            The ununpack agent or copyright agents have not started yet. Please
+            check the 'Look-at' header for more information.
+          headers:
+            'Look-at':
+              description: Contains the URL to get jobs for the given upload
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '412':
+          description: >
+            The agent has not been scheduled for the upload. Please check the
+            response message.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
 
   /search:
     get:
@@ -1213,7 +1259,54 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
-
+  /groups/{id}/user/{uid}:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the group
+        in: path
+        schema:
+          type: integer
+      - name: uid
+        required: true
+        description: user id of the member
+        in: path
+        schema:
+          type: integer
+    delete:
+      operationId: deleteGroupMemberByGroupIdAndUserId
+      tags:
+        - Groups
+      summary: Delete group member by groupId and userId
+      description: >
+        Deletes a single group member by groupId and userId
+      responses:
+        '200':
+          description: User will be removed from group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Not found Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '400':
+          description: Validation based error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description:  Internal server error with details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse' 
   /report:
     get:
       operationId: getReportsByUpload
@@ -1926,6 +2019,21 @@ components:
             example: "path/to/LICENSE"
           findings:
             $ref: '#/components/schemas/Findings'
+    UploadCopyrights:
+      type: array
+      items:
+        type: object
+        properties:
+          copyright:
+            description: Copyright Information
+            type: string
+            example: "Copyright (C) 2017-2020 Free Software Foundation, Inc."
+          filePath:
+            description: Path of the files for which the copyright information is provided
+            type: array
+            example: 
+            - "path/to/file1"
+            - "path/to/file2"
     UrlUpload:
       description: To create an upload from a URL
       type: object

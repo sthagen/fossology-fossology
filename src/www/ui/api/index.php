@@ -151,6 +151,7 @@ $app->group('/uploads',
     $app->post('', UploadController::class . ':postUpload');
     $app->get('/{id:\\d+}/summary', UploadController::class . ':getUploadSummary');
     $app->get('/{id:\\d+}/licenses', UploadController::class . ':getUploadLicenses');
+    $app->get('/{id:\\d+}/copyrights', UploadController::class . ':getUploadCopyrights');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
@@ -169,6 +170,7 @@ $app->group('/groups',
     $app->get('', GroupController::class . ':getGroups');
     $app->post('', GroupController::class . ':createGroup');
     $app->delete('/{id:\\d+}', GroupController::class . ':deleteGroup');
+    $app->delete('/{id:\\d+}/user/{uid:\\d+}', GroupController::class . ':deleteGroupMember');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
