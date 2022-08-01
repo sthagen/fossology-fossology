@@ -1,20 +1,9 @@
 <?php
-/***********************************************************
- * Copyright (C) 2014-2018, Siemens AG
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+/*
+ SPDX-FileCopyrightText: © 2014-2018 Siemens AG
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * @dir
@@ -29,6 +18,7 @@ use Fossology\Lib\Dao\PackageDao;
 use Fossology\Lib\Dao\UploadDao;
 use Fossology\Lib\Plugin\AgentPlugin;
 use Fossology\Lib\Util\StringOperation;
+use Fossology\Scancode\Ui\ScancodesAgentPlugin;
 use Symfony\Component\HttpFoundation\Request;
 
 include_once(dirname(__DIR__) . "/agent/version.php");
@@ -189,6 +179,18 @@ class ReuserAgentPlugin extends AgentPlugin
     }
     if ($request->get("Check_agent_copyright", false)) {
       $dependencies[] = "agent_copyright";
+    }
+    if (!empty($request->get("scancodeFlags", []))) {
+      /**
+       * @var ScancodesAgentPlugin ScanCode agent
+       */
+      $agentScanCode = plugin_find('agent_scancode');
+      $flags = $request->get('scancodeFlags');
+      $unpackArgs = intval($request->get('scm', 0)) == 1 ? 'I' : '';
+      $dependencies[] = [
+        "name" => "agent_scancode",
+        "args" => $agentScanCode->getScanCodeArgs($flags, $unpackArgs)
+      ];
     }
     return $dependencies;
   }
