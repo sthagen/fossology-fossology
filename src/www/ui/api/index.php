@@ -148,6 +148,7 @@ $app->group('/uploads',
 $app->group('/users',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('[/{id:\\d+}]', UserController::class . ':getUsers');
+    $app->put('[/{id:\\d+}]', UserController::class . ':updateUser');
     $app->delete('/{id:\\d+}', UserController::class . ':deleteUser');
     $app->get('/self', UserController::class . ':getCurrentUser');
     $app->any('/{params:.*}', BadRequestController::class);
@@ -160,6 +161,7 @@ $app->group('/groups',
     $app->post('', GroupController::class . ':createGroup');
     $app->delete('/{id:\\d+}', GroupController::class . ':deleteGroup');
     $app->delete('/{id:\\d+}/user/{uid:\\d+}', GroupController::class . ':deleteGroupMember');
+    $app->get('/deletable', GroupController::class . ':getDeletableGroups');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
