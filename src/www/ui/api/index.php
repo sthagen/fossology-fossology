@@ -149,8 +149,11 @@ $app->group('/users',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('[/{id:\\d+}]', UserController::class . ':getUsers');
     $app->put('[/{id:\\d+}]', UserController::class . ':updateUser');
+    $app->post('', UserController::class . ':addUser');
     $app->delete('/{id:\\d+}', UserController::class . ':deleteUser');
     $app->get('/self', UserController::class . ':getCurrentUser');
+    $app->post('/tokens', UserController::class . ':createRestApiToken');
+    $app->get('/tokens/{type:\\w+}', UserController::class . ':getTokens');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
