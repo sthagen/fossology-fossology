@@ -25,6 +25,7 @@ use Fossology\UI\Api\Controllers\BadRequestController;
 use Fossology\UI\Api\Controllers\FolderController;
 use Fossology\UI\Api\Controllers\FileSearchController;
 use Fossology\UI\Api\Controllers\JobController;
+use Fossology\UI\Api\Controllers\MaintenanceController;
 use Fossology\UI\Api\Controllers\ReportController;
 use Fossology\UI\Api\Controllers\SearchController;
 use Fossology\UI\Api\Controllers\UploadController;
@@ -138,8 +139,11 @@ $app->group('/uploads',
     $app->patch('/{id:\\d+}', UploadController::class . ':updateUpload');
     $app->put('/{id:\\d+}', UploadController::class . ':moveUpload');
     $app->post('', UploadController::class . ':postUpload');
+    $app->put('/{id:\\d+}/permissions', UploadController::class . ':setUploadPermissions');
+    $app->get('/{id:\\d+}/perm-groups', UploadController::class . ':getGroupsWithPermissions');
     $app->get('/{id:\\d+}/summary', UploadController::class . ':getUploadSummary');
     $app->get('/{id:\\d+}/licenses', UploadController::class . ':getUploadLicenses');
+    $app->get('/{id:\\d+}/download', UploadController::class . ':uploadDownload');
     $app->get('/{id:\\d+}/copyrights', UploadController::class . ':getUploadCopyrights');
     $app->any('/{params:.*}', BadRequestController::class);
   });
@@ -162,9 +166,11 @@ $app->group('/groups',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('', GroupController::class . ':getGroups');
     $app->post('', GroupController::class . ':createGroup');
+    $app->post('/{id:\\d+}/user/{userId:\\d+}', GroupController::class . ':addMember');
     $app->delete('/{id:\\d+}', GroupController::class . ':deleteGroup');
-    $app->delete('/{id:\\d+}/user/{uid:\\d+}', GroupController::class . ':deleteGroupMember');
+    $app->delete('/{id:\\d+}/user/{userId:\\d+}', GroupController::class . ':deleteGroupMember');
     $app->get('/deletable', GroupController::class . ':getDeletableGroups');
+    $app->get('/{id:\\d+}/members', GroupController::class . ':getGroupMembers');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
@@ -182,6 +188,14 @@ $app->group('/search',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('', SearchController::class . ':performSearch');
   });
+
+////////////////////////////MAINTENANCE/////////////////////
+$app->group('/maintenance',
+  function (\Slim\Routing\RouteCollectorProxy $app) {
+    $app->post('', MaintenanceController::class . ':createMaintenance');
+    $app->any('/{params:.*}', BadRequestController::class);
+  });
+
 
 ////////////////////////////FOLDER/////////////////////
 $app->group('/folders',
@@ -227,6 +241,7 @@ $app->group('/filesearch',
 $app->group('/license',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('', LicenseController::class . ':getAllLicenses');
+    $app->post('/import-csv', LicenseController::class . ':handleImportLicense');
     $app->post('', LicenseController::class . ':createLicense');
     $app->get('/{shortname:.+}', LicenseController::class . ':getLicense');
     $app->patch('/{shortname:.+}', LicenseController::class . ':updateLicense');

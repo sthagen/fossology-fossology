@@ -138,7 +138,48 @@ paths:
                 $ref: '#/components/schemas/ApiInfo'
         default:
           $ref: '#/components/responses/defaultResponse'
-
+  /maintenance:
+    post:
+      operationId: initiateMaintenance
+      tags:
+        - Maintenance
+      summary:  Initiate maintenance operations
+      description: > 
+        Perform maintenance operations corresponding to the user options.
+      requestBody:
+        description: Maintenance options
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMaintenance'
+      responses:
+        '201':
+          description: Maintenance Initiated Successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Key Not Found Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '400':
+          description: Validation Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
   /health:
     get:
       operationId: getHealth
@@ -475,6 +516,37 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+  /uploads/{id}/download:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Download file using Upload ID
+        schema:
+          type: integer
+    get:
+      operationId: getUploadFileById
+      tags:
+      - Upload
+      summary: Download the file
+      description: >
+        Get a file by upload id
+      responses:
+        '200':
+          description: Required report
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: Upload is not accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+            $ref: '#/components/responses/defaultResponse'
 
   /uploads/{id}/summary:
     parameters:
@@ -657,6 +729,128 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+  /uploads/{id}/permissions:
+    parameters:
+      - name: id
+        required: true
+        description: Enter any upload id
+        in: path
+        schema:
+          type: integer
+    put:
+      operationId: setUploadPermissions
+      tags:
+        - Upload
+      summary: Set permissions for a upload in a folder for different groups
+      description: >
+        Set permissions for a upload in a folder for different groups
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folderId:
+                  type: integer
+                  description: Enter a folder id
+                allUploadsPermission:
+                  type: boolean
+                  enum:
+                  - true
+                  - false
+                  description: Apply same permissions to all uploads in this folder
+                groupId:
+                  type: integer
+                  description: Enter the id of the group you want to add or edit permission for this upload
+                newPermission:
+                  type: string
+                  enum:
+                  - none
+                  - read_only
+                  - read_write
+                  - clearing_admin
+                  - admin
+                  description: Select the permission for selected group
+                publicPermission:
+                  type: string
+                  enum:
+                  - none
+                  - read_only
+                  - read_write
+                  - clearing_admin
+                  - admin
+                  description: Select the public permission for this upload
+              required:
+                - allUploadsPermission
+      responses:
+        '202':
+          description: Permissions updated successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Info'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Info'
+        '404':
+          description: Upload does not exist
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Info'
+        '503':
+          description: Scheduler is not running
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+  /uploads/{id}/perm-groups:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+    get:
+      operationId: getGroupsWithPermissions
+      tags:
+        - Upload
+      summary: Get all the groups with their respective permissions for a upload
+      description:
+        Returns the list of all the groups with their respective permissions for a upload
+      responses:
+        '200':
+          description: Get Groups with permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadPermGroups'
+        '404':
+          description: Upload does not exist
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
 
@@ -1464,7 +1658,7 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
-  /groups/{id}/user/{uid}:
+  /groups/{id}/user/{userId}:
     parameters:
       - name: id
         required: true
@@ -1472,7 +1666,7 @@ paths:
         in: path
         schema:
           type: integer
-      - name: uid
+      - name: userId
         required: true
         description: user id of the member
         in: path
@@ -1512,6 +1706,42 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+    post:
+      operationId: addMember
+      tags:
+        - Groups
+        - Admin
+      summary: Add user to a group
+      description: >
+        add a new user to group
+      requestBody:
+        description: Request options
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMember'
+      responses:
+        '200':
+          description: User has been added to group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
   /groups/deletable:
     get:
       operationId: deletableGroups
@@ -1531,6 +1761,34 @@ paths:
                   $ref: '#/components/schemas/Group'
         default:
           $ref: '#/components/responses/defaultResponse'
+
+  /groups/{id}/members:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the group
+        schema:
+          type: integer
+    get:
+      operationId: getGroupUsersWithRoles
+      tags:
+        - Groups
+      summary: Get the users with their roles from a group
+      description: >
+        Returns accessible objects of users with roles from the group
+      responses:
+        '200':
+          description: List of group-user-member
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserGroupMember'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+          
   /report:
     get:
       operationId: getReportsByUpload
@@ -1777,6 +2035,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
+            $ref: '#/components/responses/defaultResponse'
+  /license/import-csv:
+    post:
+      operationId: importLicense
+      tags:
+        - License
+      summary: Import a csv license
+      description: >
+        Import a csv license to the database
+      requestBody:
+        description: Information about delimiters, inclosure and csv file.
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                enclosure:
+                  type: string
+                  description: Enclosure for string in CSV
+                  default: '"'
+                  required: false
+                delimiter:
+                  type: string
+                  description: Delimiters for fields in CSV
+                  default: ','
+                  required: false
+                file_input:
+                  type: string
+                  format: binary
+                  description: CSV to be imported
+                  required: true
+      responses:
+          '400':
+            description: Validation Error
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Info'
+          '200':
+            description: Successfully imported
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Info'
+          default:
             $ref: '#/components/responses/defaultResponse'
   /license/{shortname}:
     parameters:
@@ -2289,6 +2593,25 @@ components:
             example: 
             - "path/to/file1"
             - "path/to/file2"
+    UploadPermGroups:
+      description: Groups with their respective permissions for a upload
+      type: object
+      properties:
+        publicPerm:
+          type: string
+          description: Public permission for the upload
+        permGroups:
+          type: array
+          description: Indexed Object of GroupIds with their respective permissions for a upload
+          items:
+            type: object
+            properties:
+              perm:
+                type: string
+              group_pk:
+                type: string
+              group_name:
+                type: string
     UrlUpload:
       description: To create an upload from a URL
       type: object
@@ -2455,6 +2778,15 @@ components:
           type: string
           example:
             "Main group"
+    UserGroupMember:
+      type: object
+      properties:
+        user:
+            $ref: '#/components/schemas/User'
+        group_perm:
+          type: integer
+          description: Permission of the user in the group.
+          example: 1
     Obligation:
       description: Obligation information
       type: object
@@ -2557,6 +2889,54 @@ components:
               description: Date on which packages were built in ISO8601 format
               nullable: true
               example: "2022-01-07T11:13:00+05:30"
+    CreateMaintenance:
+      description: Maintenance options
+      type: object
+      properties:
+        options:
+          type: array
+          description: options list
+          nullable: false
+          items:
+            type: string
+            enum:
+              - a
+              - A
+              - F
+              - g
+              - E
+              - L
+              - N
+              - R
+              - t
+              - T
+              - D
+              - Z
+              - I
+              - v
+              - o
+              - l
+        logsDate:
+          type: string
+          description: Date from which to remove older gold files from repository.
+          nullable: true
+          example: "2021-08-19"
+        goldDate:
+          type: string
+          description: Date from which to remove older log files from repository.
+          nullable: true
+          example: "2022-07-16"
+    AddMember:
+      description: UserMember options
+      type: object
+      properties:
+        perm:
+          type: integer
+          description: Default permission of the new member.
+          nullable: false
+          minimum: 0
+          maximum: 2
+          example: 0
     HealthInfo:
       description: Health status of server
       type: object
