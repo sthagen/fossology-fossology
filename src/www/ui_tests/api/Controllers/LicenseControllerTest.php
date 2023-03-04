@@ -12,23 +12,24 @@
 
 namespace Fossology\UI\Api\Test\Controllers;
 
-use Mockery as M;
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Dao\UserDao;
 use Fossology\Lib\Db\DbManager;
 use Fossology\UI\Api\Controllers\LicenseController;
 use Fossology\UI\Api\Helper\DbHelper;
+use Fossology\UI\Api\Helper\ResponseHelper;
 use Fossology\UI\Api\Helper\RestHelper;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
 use Fossology\UI\Api\Models\License;
 use Fossology\UI\Api\Models\Obligation;
-use Fossology\UI\Api\Helper\ResponseHelper;
-use Slim\Psr7\Request;
+use Mockery as M;
 use Slim\Psr7\Factory\StreamFactory;
-use Slim\Psr7\Uri;
 use Slim\Psr7\Headers;
+use Slim\Psr7\Request;
+use Slim\Psr7\Uri;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @class LicenseControllerTest
@@ -103,6 +104,19 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
   private $streamFactory;
 
   /**
+   * @var M\MockInterface $licenseCandidatePlugin
+   * admin_license_candidate mock
+   */
+  private $licenseCandidatePlugin;
+
+
+  /**
+   * @var Auth $auth
+   * Auth mock
+   */
+  private $auth;
+
+  /**
    * @brief Setup test objects
    * @see PHPUnit_Framework_TestCase::setUp()
    */
@@ -113,14 +127,17 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     $this->groupId = 2;
     $container = M::mock('ContainerBuilder');
     $this->dbHelper = M::mock(DbHelper::class);
+    $this->auth = M::mock(Auth::class);
     $this->dbManager = M::mock(DbManager::class);
     $this->restHelper = M::mock(RestHelper::class);
     $this->licenseDao = M::mock(LicenseDao::class);
     $this->userDao = M::mock(UserDao::class);
     $this->adminLicensePlugin = M::mock('admin_license_from_csv');
+    $this->licenseCandidatePlugin = M::mock('admin_license_candidate');
 
     $this->dbHelper->shouldReceive('getDbManager')->andReturn($this->dbManager);
 
+    $this->restHelper->shouldReceive('getPlugin')->withArgs(["admin_license_candidate"])->andReturn($this->licenseCandidatePlugin);
     $this->restHelper->shouldReceive('getDbHelper')->andReturn($this->dbHelper);
     $this->restHelper->shouldReceive('getGroupId')->andReturn($this->groupId);
     $this->restHelper->shouldReceive('getUserId')->andReturn($this->userId);
@@ -841,4 +858,114 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
       $this->getResponseJson($actualResponse));
   }
 
+
+  /**
+   * @test
+   * -# Test for LicenseController::deleteAdminLicenseCandidate() to delete license-candidate.
+   * -# User is admin
+   * -# License-candidate is does exist
+   * -# Check if response is 200
+   * -# Check if reponse-body matches
+   */
+  public function testDeleteAdminLicenseCandidateIsAdmin(){
+    $_SESSION[Auth::USER_LEVEL] = Auth::PERM_ADMIN;
+    $id = 1;
+    $this->auth->shouldReceive('isAdmin')->andReturn(true);
+    $this->licenseCandidatePlugin->shouldReceive('getDataRow')->withArgs([$id])->andReturn(true);
+    $res = new Response('true',Response::HTTP_OK,array('Content-type'=>'text/plain'));
+    $this->licenseCandidatePlugin->shouldReceive("doDeleteCandidate")->withArgs([$id,false])->andReturn($res);
+    $expectedResponse = new Info(202,"License candidate will be deleted.",  InfoType::INFO);
+    $actualResponse = $this->licenseController->deleteAdminLicenseCandidate(null,
+      new ResponseHelper(), ["id" => $id]);
+    $this->assertEquals($expectedResponse->getCode(),
+      $actualResponse->getStatusCode());
+    $this->assertEquals($expectedResponse->getArray(),
+      $this->getResponseJson($actualResponse));
+  }
+
+  /**
+   * @test
+   * -# Test for LicenseController::deleteAdminLicenseCandidate() to delete license-candidate.
+   * -# User is not-admin
+   * -# License-candidate is does exist
+   * -# Check if response is 400
+   * -# Check if reponse-body matches
+   */
+  public function testDeleteAdminLicenseCandidateNotAdmin(){
+    $_SESSION[Auth::USER_LEVEL] = Auth::PERM_WRITE;
+    $id = 1;
+    $this->auth->shouldReceive('isAdmin')->andReturn(false);
+    $expectedResponse = new Info(403, "Only admin can perform this operation.", InfoType::ERROR);
+    $actualResponse = $this->licenseController->deleteAdminLicenseCandidate(null,
+      new ResponseHelper(), ["id" => $id]);
+    $this->assertEquals($expectedResponse->getCode(),
+      $actualResponse->getStatusCode());
+    $this->assertEquals($expectedResponse->getArray(),
+      $this->getResponseJson($actualResponse));
+  }
+
+  /**
+   * @test
+   * -# Test for LicenseController::deleteAdminLicenseCandidate() to delete license-candidate.
+   * -# User is admin
+   * -# License-candidate is doesn't exist
+   * -# Check if response is 404
+   * -# Check if reponse-body matches
+   */
+  public function testDeleteAdminLicenseCandidateNotFound(){
+    $_SESSION[Auth::USER_LEVEL] = Auth::PERM_ADMIN;
+    $id = 1;
+    $this->auth->shouldReceive('isAdmin')->andReturn(true);
+    $this->licenseCandidatePlugin->shouldReceive('getDataRow')->withArgs([$id])->andReturn(false);
+    $res = new Response('true',Response::HTTP_OK,array('Content-type'=>'text/plain'));
+    $this->licenseCandidatePlugin->shouldReceive("doDeleteCandidate")->withArgs([$id])->andReturn($res);
+    $expectedResponse = new Info(404, "License candidate not found.", InfoType::ERROR);
+    $actualResponse = $this->licenseController->deleteAdminLicenseCandidate(null,
+      new ResponseHelper(), ["id" => $id]);
+    $this->assertEquals($expectedResponse->getCode(),
+      $actualResponse->getStatusCode());
+    $this->assertEquals($expectedResponse->getArray(),
+      $this->getResponseJson($actualResponse));
+  }
+
+
+  /**
+   * @test
+   * -# Test for LicenseController::getCandidates()
+   * -# Check if status is 200
+   * -# Check if response-body matches
+   */
+  public function testGetCandidates()
+  {
+    $_SESSION[Auth::USER_LEVEL] = Auth::PERM_ADMIN;
+    $this->licenseCandidatePlugin->shouldReceive('getCandidateArrayData')->andReturn([]);
+
+    $expectedResponse = (new ResponseHelper())->withJson([], 200);
+    $actualResponse = $this->licenseController->getCandidates(null,
+      new ResponseHelper(), null);
+    $this->assertEquals($expectedResponse->getStatusCode(),
+      $actualResponse->getStatusCode());
+    $this->assertEquals($this->getResponseJson($expectedResponse),
+      $this->getResponseJson($actualResponse));
+  }
+
+  /**
+   * @test
+   * -# Test for LicenseController::getCandidates() as a non-admin user
+   * -# Check if status is 403
+   */
+  public function testGetCandidatesNoAdmin()
+  {
+    $_SESSION[Auth::USER_LEVEL] = Auth::PERM_READ;
+
+    $info = new Info(403, "You are not allowed to access the endpoint.", InfoType::ERROR);
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
+      $info->getCode());
+    $actualResponse = $this->licenseController->getCandidates(null,
+      new ResponseHelper(), null);
+    $this->assertEquals($expectedResponse->getStatusCode(),
+      $actualResponse->getStatusCode());
+    $this->assertEquals($this->getResponseJson($expectedResponse),
+      $this->getResponseJson($actualResponse));
+  }
 }

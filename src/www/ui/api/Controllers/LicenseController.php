@@ -16,10 +16,12 @@ use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Exception;
 use Fossology\Lib\Util\StringOperation;
 use Fossology\UI\Api\Helper\ResponseHelper;
-use Fossology\UI\Api\Models\License;
-use Fossology\UI\Api\Models\Obligation;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
+use Fossology\UI\Api\Models\License;
+use Fossology\UI\Api\Models\LicenseCandidate;
+use Fossology\UI\Api\Models\Obligation;
+use Fossology\UI\Page\AdminLicenseCandidate;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
@@ -400,5 +402,65 @@ class LicenseController extends RestController
     $newInfo = new Info($res[2], $res[1], $res[0] == 200 ? InfoType::INFO : InfoType::ERROR);
 
     return $response->withJson($newInfo->getArray(), $newInfo->getCode());
+  }
+
+  /**
+   * Get list of all license candidates, paginated upon request params
+   *
+   * @param Request $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getCandidates($request, $response, $args)
+  {
+    if (! Auth::isAdmin()) {
+      $error = new Info(403, "You are not allowed to access the endpoint.", InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+    /** @var AdminLicenseCandidate $adminLicenseCandidate */
+    $adminLicenseCandidate = $this->restHelper->getPlugin("admin_license_candidate");
+    $licenses = LicenseCandidate::convertDbArray($adminLicenseCandidate->getCandidateArrayData());
+    return $response->withJson($licenses, 200);
+  }
+
+  /**
+   * Delete license candidate by id.
+   *
+   * @param Request $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function deleteAdminLicenseCandidate($request, $response, $args)
+  {
+    $resInfo = null;
+    if (!Auth::isAdmin()) {
+      $resInfo = new Info(403, "Only admin can perform this operation.",
+        InfoType::ERROR);
+    } else {
+      $id = intval($args['id']);
+      $adminLicenseCandidate = $this->restHelper->getPlugin('admin_license_candidate');
+
+      if ($adminLicenseCandidate->getDataRow($id)) {
+        $res = $adminLicenseCandidate->doDeleteCandidate($id,false);
+        $message = $res->getContent();
+        $infoType = InfoType::ERROR;
+        if ($res->getContent() === 'true') {
+          $message = "License candidate will be deleted.";
+          $infoType = InfoType::INFO;
+          $resCode = 202;
+        } else {
+          $message = "License used at following locations, can not delete: " .
+            $message;
+          $resCode = 409;
+        }
+        $resInfo = new Info($resCode, $message, $infoType);
+      } else {
+        $resInfo = new Info(404, "License candidate not found.",
+          InfoType::ERROR);
+      }
+    }
+    return $response->withJson($resInfo->getArray(), $resInfo->getCode());
   }
 }

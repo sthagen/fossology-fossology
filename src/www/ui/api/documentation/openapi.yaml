@@ -7,7 +7,7 @@ openapi: 3.0.2
 info:
   title: FOSSology API
   description: Automate your fossology instance using REST API
-  version: 1.4.3
+  version: 1.5.0
   contact:
     email: fossology@fossology.org
   license:
@@ -23,32 +23,32 @@ externalDocs:
   description: Basic guide
   url: https://github.com/fossology/fossology/wiki/FOSSology-REST-API
 tags:
-- name: auth
-  description: Authentication endpoints
-- name: info
-  description: Basic info about API
-- name: Upload
-  description: Endpoints related to uploads
-- name: Organize
-  description: Endpoints for organization of data
-- name: Search
-  description: Searching data on FOSSology
-- name: User
-  description: User management
-- name: Admin
-  description: Administrator tasks
-- name: Job
-  description: FOSSology jobs
-- name: Folders
-  description: Folder management
-- name: Groups
-  description: User group management
-- name: Report
-  description: Upload's report
-- name: License
-  description: License and obligation management
-- name: Maintenance
-  description: Maintenance operations
+  - name: auth
+    description: Authentication endpoints
+  - name: info
+    description: Basic info about API
+  - name: Upload
+    description: Endpoints related to uploads
+  - name: Organize
+    description: Endpoints for organization of data
+  - name: Search
+    description: Searching data on FOSSology
+  - name: User
+    description: User management
+  - name: Admin
+    description: Administrator tasks
+  - name: Job
+    description: FOSSology jobs
+  - name: Folders
+    description: Folder management
+  - name: Groups
+    description: User group management
+  - name: Report
+    description: Upload's report
+  - name: License
+    description: License and obligation management
+  - name: Maintenance
+    description: Maintenance operations
 
 paths:
   /tokens:
@@ -89,7 +89,7 @@ paths:
                 type: object
                 properties:
                   header:
-                      type: string
+                    type: string
               example:
                 {"Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJsb2NhbGhvc3QiLCJhdWQiOiJsb2NhbGhvc3QiLCJleHAiOjE1NTEyOTIyMDAsIm5iZiI6MTU1MTIwNTgwMCwianRpIjoiTmk0eiIsInNjb3BlIjoicmVhZCJ9.71D6xTD2QE45t9AVCwbrQwSSae5lC4yzKCMpZWXoC2Q"}
         '404':
@@ -146,7 +146,7 @@ paths:
       tags:
         - Maintenance
       summary:  Initiate maintenance operations
-      description: > 
+      description: >
         Perform maintenance operations corresponding to the user options.
       requestBody:
         description: Maintenance options
@@ -443,13 +443,19 @@ paths:
       description: >
         Endpoint to create a new upload in FOSSology
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              oneOf:
-                - $ref: '#/components/schemas/VcsUpload'
-                - $ref: '#/components/schemas/UrlUpload'
-                - $ref: '#/components/schemas/ServerUpload'
+              type: object
+              properties:
+                location:
+                  oneOf:
+                    - $ref: '#/components/schemas/VcsUpload'
+                    - $ref: '#/components/schemas/UrlUpload'
+                    - $ref: '#/components/schemas/ServerUpload'
+                scanOptions:
+                  $ref: '#/components/schemas/ScanOptions'
           multipart/form-data:
             schema:
               type: object
@@ -457,6 +463,10 @@ paths:
                 fileInput:
                   type: string
                   format: binary
+                scanOptions:
+                  $ref: '#/components/schemas/ScanOptions'
+              required:
+                - fileInput
       parameters:
         - name: folderId
           description: Folder Id, where upload should be created
@@ -501,10 +511,11 @@ paths:
           description: >
             Type of upload done. Required for VCS, URL and server uploads
           in: header
-          required: false
+          required: true
           schema:
             type: string
             enum:
+              - file
               - vcs
               - url
               - server
@@ -529,7 +540,7 @@ paths:
     get:
       operationId: getUploadFileById
       tags:
-      - Upload
+        - Upload
       summary: Download the file
       description: >
         Get a file by upload id
@@ -548,7 +559,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
 
   /uploads/{id}/summary:
     parameters:
@@ -635,14 +646,14 @@ paths:
         in: query
         schema:
           type: boolean
-          default: true    
+          default: true
       - name: copyright
         required: false
         description: Show copyrights in response
         in: query
         schema:
           type: boolean
-          default: false    
+          default: false
       - name: groupName
         description: The group name to chose while accessing the package
         in: header
@@ -761,8 +772,8 @@ paths:
                 allUploadsPermission:
                   type: boolean
                   enum:
-                  - true
-                  - false
+                    - true
+                    - false
                   description: Apply same permissions to all uploads in this folder
                 groupId:
                   type: integer
@@ -770,20 +781,20 @@ paths:
                 newPermission:
                   type: string
                   enum:
-                  - none
-                  - read_only
-                  - read_write
-                  - clearing_admin
-                  - admin
+                    - none
+                    - read_only
+                    - read_write
+                    - clearing_admin
+                    - admin
                   description: Select the permission for selected group
                 publicPermission:
                   type: string
                   enum:
-                  - none
-                  - read_only
-                  - read_write
-                  - clearing_admin
-                  - admin
+                    - none
+                    - read_only
+                    - read_write
+                    - clearing_admin
+                    - admin
                   description: Select the public permission for this upload
               required:
                 - allUploadsPermission
@@ -961,69 +972,69 @@ paths:
           $ref: '#/components/responses/defaultResponse'
   /users:
     post:
-        operationId: createUser
-        tags:
+      operationId: createUser
+      tags:
         - User
         - Admin
-        summary: Create a new user
-        description: >
-          Create a new user
-        requestBody:
-          required: true
+      summary: Create a new user
+      description: >
+        Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/User'
+                - type: object
+                  properties:
+                    user_pass:
+                      type: string
+                    defaultVisibility:
+                      type: string
+                      enum:
+                        - public
+                        - protected
+                        - private
+                  required:
+                    - name
+          application/x-www-form-urlencoded:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/User'
+                - type: object
+                  properties:
+                    user_pass:
+                      type: string
+                    defaultVisibility:
+                      type: string
+                      enum:
+                        - public
+                        - protected
+                        - private
+                  required:
+                    - name
+      responses:
+        '201':
+          description: User created successfully
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/User'
-                  - type: object
-                    properties:
-                      user_pass:
-                        type: string
-                      defaultVisibility:
-                        type: string
-                        enum:
-                          - public
-                          - protected
-                          - private
-                    required:
-                      - name
-            application/x-www-form-urlencoded:
+                $ref: '#/components/schemas/Info'
+        '409':
+          description: User with the same email or username already exists
+          content:
+            application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/User'
-                  - type: object
-                    properties:
-                      user_pass:
-                        type: string
-                      defaultVisibility:
-                        type: string
-                        enum:
-                          - public
-                          - protected
-                          - private
-                    required:
-                      - name
-        responses:
-          '201':
-            description: User created successfully
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Info'
-          '409':
-            description: User with the same email or username already exists
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Info'
-          '500':
-            description: Internal server error with details
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Info'
-          default:
-              $ref: '#/components/responses/defaultResponse'
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
     get:
       operationId: getUsers
       tags:
@@ -1064,7 +1075,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
     put:
       operationId: modifyUserById
       tags:
@@ -1133,9 +1144,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Info'
-        
+
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
     delete:
       operationId: deleteUserById
       tags:
@@ -1152,7 +1163,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
   /users/self:
     get:
       operationId: getSelf
@@ -1165,7 +1176,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'      
+                allOf:
+                  - $ref: '#/components/schemas/User'
+                  - type: object
+                    properties:
+                      default_group:
+                        type: string
+                        description: Default group of the user
+                        example:
+                          "fossy"
         default:
           $ref: '#/components/responses/defaultResponse'
   /users/tokens:
@@ -1202,9 +1221,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Info'
-        
+
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
   /users/tokens/{type}:
     parameters:
       - name: type
@@ -1213,8 +1232,8 @@ paths:
         schema:
           type: string
           enum:
-          - active
-          - expired
+            - active
+            - expired
     get:
       operationId: getTokensByType
       tags:
@@ -1241,9 +1260,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Info'
-        
+
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
   /jobs:
     parameters:
       - name: groupName
@@ -1256,7 +1275,7 @@ paths:
     get:
       operationId: getJobs
       tags:
-      - Job
+        - Job
       summary: Gets all jobs created by the logged in user
       description: Returns all jobs with their status created by the logged in user
       parameters:
@@ -1328,12 +1347,12 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
-  
+
   /jobs/all:
     get:
       operationId: getAllJobs
       tags:
-      - Job
+        - Job
       summary: Gets all jobs created by all users
       description: Returns all jobs with their status created by every user. This API returns a response only if the requesting user is an Admin.
       parameters:
@@ -1369,10 +1388,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Info'
-
-        
         default:
-          $ref: '#/components/responses/defaultResponse'    
+          $ref: '#/components/responses/defaultResponse'
   /jobs/{id}:
     parameters:
       - name: id
@@ -1384,7 +1401,7 @@ paths:
     get:
       operationId: getJobById
       tags:
-      - Job
+        - Job
       summary: Gets single job by id
       description: Returns job with the status
       responses:
@@ -1395,7 +1412,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Job'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
 
   /folders:
     parameters:
@@ -1409,7 +1426,7 @@ paths:
     get:
       operationId: getFolders
       tags:
-      - Folders
+        - Folders
       summary: Get the list of accessible folders
       description: >
         Get all folders or from a specific group
@@ -1423,13 +1440,13 @@ paths:
                 items:
                   $ref: '#/components/schemas/Folder'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
     post:
       operationId: createFolder
       tags:
-      - Organize
-      - Admin
-      - Folders
+        - Organize
+        - Admin
+        - Folders
       summary: Create a new folder
       description: >
         Create a new child folder with optional description
@@ -1466,7 +1483,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
   /folders/{id}:
     parameters:
       - name: id
@@ -1485,7 +1502,7 @@ paths:
     get:
       operationId: getFolderById
       tags:
-      - Folders
+        - Folders
       summary: Get a single folder details
       description:
         Get a single folder by id
@@ -1497,13 +1514,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Folder'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
     delete:
       operationId: deleteFolderById
       tags:
-      - Organize
-      - Folders
-      - Admin
+        - Organize
+        - Folders
+        - Admin
       summary: Delete a folder
       description: >
         Schedule a folder deletion
@@ -1515,12 +1532,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
     patch:
       operationId: patchFolderById
       tags:
-      - Organize
-      - Folders
+        - Organize
+        - Folders
       parameters:
         - name: name
           in: header
@@ -1545,12 +1562,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
     put:
       operationId: moveFolderById
       tags:
-      - Organize
-      - Folders
+        - Organize
+        - Folders
       parameters:
         - name: parent
           in: header
@@ -1578,13 +1595,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
 
   /groups:
     get:
       operationId: getGroups
       tags:
-      - Groups
+        - Groups
       summary: Get the list of groups
       description: >
         Returns accessible groups for a user, all groups for an admin
@@ -1598,13 +1615,13 @@ paths:
                 items:
                   $ref: '#/components/schemas/Group'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
     post:
       operationId: createGroup
       tags:
-      - Organize
-      - Groups
-      - Admin
+        - Organize
+        - Groups
+        - Admin
       summary: Create a new group
       description: >
         Create a new user group
@@ -1635,7 +1652,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
   /groups/{id}:
     parameters:
       - name: id
@@ -1744,6 +1761,51 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+    put:
+      operationId: updatePermissionByGroupIdAndUserId
+      tags:
+        - User
+        - Groups
+      summary: Update Permission
+      description: >
+        Update User's permission in group.
+      requestBody:
+        description: Value of the new permission
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewGroupPermission'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NewGroupPermission'
+      responses:
+        '202':
+          description: User's permission will be updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Group or user doesn't exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '400':
+          description: Validation Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
   /groups/deletable:
     get:
       operationId: deletableGroups
@@ -1790,13 +1852,12 @@ paths:
                   $ref: '#/components/schemas/UserGroupMember'
         default:
           $ref: '#/components/responses/defaultResponse'
-          
   /report:
     get:
       operationId: getReportsByUpload
       tags:
-      - Job
-      - Report
+        - Job
+        - Report
       summary: Get the reports for a given upload
       description: >
         List all reports available for a given upload
@@ -1835,7 +1896,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
   /report/{id}:
     parameters:
       - name: id
@@ -1854,8 +1915,8 @@ paths:
     get:
       operationId: getReportById
       tags:
-      - Job
-      - Report
+        - Job
+        - Report
       summary: Download the report
       description: >
         Get a report by id
@@ -1888,7 +1949,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
   /report/import:
     parameters:
       - name: groupName
@@ -1969,20 +2030,20 @@ paths:
     post:
       operationId: getFiles
       tags:
-      - Upload
-      - Search
+        - Upload
+        - Search
       summary: Get the information of files matching the provided hashes
       description: >
         Get a list of files by hashes
       requestBody:
-          description: List of file hashes to fetch
-          required: true
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Hash'
+        description: List of file hashes to fetch
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Hash'
       responses:
         '200':
           description: List of matching files
@@ -1993,7 +2054,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/File'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
   /license:
     parameters:
       - name: groupName
@@ -2006,7 +2067,7 @@ paths:
     get:
       operationId: getLicenses
       tags:
-      - License
+        - License
       parameters:
         - name: page
           description: Page number to fetch
@@ -2067,11 +2128,11 @@ paths:
                             125
                     - $ref: '#/components/schemas/License'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
     post:
       operationId: createLicense
       tags:
-      - License
+        - License
       summary: Create a new license
       description: >
         Add a new license to the database
@@ -2105,7 +2166,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
   /license/import-csv:
     post:
       operationId: importLicense
@@ -2137,20 +2198,20 @@ paths:
               required:
                 - file_input
       responses:
-          '400':
-            description: Validation Error
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Info'
-          '200':
-            description: Successfully imported
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Info'
-          default:
-            $ref: '#/components/responses/defaultResponse'
+        '400':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '200':
+          description: Successfully imported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
   /license/{shortname}:
     parameters:
       - name: shortname
@@ -2169,7 +2230,7 @@ paths:
     get:
       operationId: getLicenseByShortname
       tags:
-      - License
+        - License
       summary: Get a specific license
       description: >
         Get information about a specific license
@@ -2202,11 +2263,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
     patch:
       operationId: updateLicenseByShortname
       tags:
-      - License
+        - License
       summary: Update a license
       description: >
         Update information about a given license
@@ -2251,8 +2312,69 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
+          $ref: '#/components/responses/defaultResponse'
+  /license/admincandidates:
+    get:
+      operationId: getAdminLicenseCandidates
+      tags:
+        - License
+      summary: Get license Candidates for admin view
+      description: >
+        Get a list of license candidates from the database.
+      responses:
+        '200':
+          description: Request is successful
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LicenseCandidate'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
             $ref: '#/components/responses/defaultResponse'
-
+  /license/admincandidates/{id}:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the license-candidate
+        in: path
+        schema:
+          type: integer
+    delete:
+      operationId: deleteByLicenseCandidateId
+      tags:
+        - License
+        - Admin
+      summary: Delete license candidate by id.
+      description: >
+        Delete a single admin-license-candidate by the given id.
+      responses:
+        '202':
+          description: License candidate will be deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '403':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -2447,13 +2569,37 @@ components:
         scope:
           type: string
           enum:
-          - read
-          - write
+            - read
+            - write
           description: Scope of the token
         token:
           type: string
           description: Scope of the token
           example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NTg5NDY1OTksIm5iZiI6MTY1NzkwOTgwMCwianRpIjoiTnk0eiIsInNjb3BlIjoid3JpdGUifQ.Yqwdt7Fzx-Qw3megYix_OYu1mqBOoz4Rrc1cgJasmJA
+    LicenseCandidate:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID of the license-candidate.
+        shortname:
+          type: string
+          description: shortname of the license-candidate.
+        spdxid:
+          type: string
+          description: SPDX ID of the license-candiate.
+        fullname:
+          type: string
+          description: fullname of the license-candidate.
+        text:
+          type: string
+          description: text of the license-candidate.
+        group_name:
+          type: string
+          description: group_name of the license-candidate.
+        group_id:
+            type: integer
+            description: group_id of the license-candidate.
     User:
       type: object
       properties:
@@ -2560,7 +2706,7 @@ components:
       properties:
         license:
           type: boolean
-          description: A full comparison between the database of licenses present in ScanCode and the code uploaded by users based approach. 
+          description: A full comparison between the database of licenses present in ScanCode and the code uploaded by users based approach.
         copyright:
           type: boolean
           description: Copyright along with copyright holder/author information.
@@ -2647,6 +2793,9 @@ components:
             example: "path/to/LICENSE"
           findings:
             $ref: '#/components/schemas/Findings'
+          clearing_status:
+            type: string
+            example: "Do not use"
     UploadCopyrights:
       type: array
       items:
@@ -2658,8 +2807,12 @@ components:
             example: "Copyright (C) 2017-2020 Free Software Foundation, Inc."
           filePath:
             description: Path of the files for which the copyright information is provided
-            type: string
-            example: "path/to/file1"
+            type: array
+            items:
+              type: string
+            example:
+              - "path/to/file1"
+              - "path/to/file2"
     UploadPermGroups:
       description: Groups with their respective permissions for a upload
       type: object
@@ -2849,7 +3002,7 @@ components:
       type: object
       properties:
         user:
-            $ref: '#/components/schemas/User'
+          $ref: '#/components/schemas/User'
         group_perm:
           type: integer
           description: Permission of the user in the group.
@@ -2993,6 +3146,19 @@ components:
           description: Date from which to remove older log files from repository.
           nullable: true
           example: "2022-07-16"
+    NewGroupPermission:
+      description: User Group permission update
+      type: object
+      properties:
+        perm:
+          type: integer
+          description: |
+            New user permission in the group.
+            0: User
+            1: Admin
+            2: Advisor
+          minimum: 0
+          maximum: 2
     AddMember:
       description: UserMember options
       type: object
@@ -3044,14 +3210,13 @@ components:
           description: User ID on which to tag imported decisions. Use '0' for self.
           default: 0
           example: 3
-          required: true
         report:
           $ref: '#/components/schemas/ReportImportFile'
+      required: ["importerUser", "report"]
     ReportImportFile:
       description: Report file to be imported
       type: string
       format: binary
-      required: true
   responses:
     defaultResponse:
       description: Some error occurred. Check the "message"
