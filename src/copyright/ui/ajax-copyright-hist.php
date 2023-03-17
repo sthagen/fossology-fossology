@@ -375,10 +375,14 @@ count(*) AS copyright_count " .
   private function addSearchFilter(&$filterParams)
   {
     $searchPattern = GetParm('sSearch', PARM_STRING);
+    $isInverseSearch = GetParm('isInverse', PARM_STRING);
     if (empty($searchPattern)) {
       return '';
     }
     $filterParams[] = "%$searchPattern%";
+    if ($isInverseSearch == 'true') {
+      return 'WHERE mcontent not ilike $'.count($filterParams).' ';
+    }
     return 'WHERE mcontent ilike $'.count($filterParams).' ';
   }
 
@@ -429,7 +433,7 @@ count(*) AS copyright_count " .
   private function fillTableRow($row, $uploadTreeId, $upload, $agentId, $type,$listPage, $filter = "", $activated = true, $rw = true)
   {
     $hash = $row['hash'];
-    $output = array('DT_RowId' => "$upload,$uploadTreeId,$hash,$type" );
+    $output = array('DT_RowId' => "$upload,$uploadTreeId,$hash,$type", "DT_RowClass" => "row$hash");
 
     $link = "<a href='";
     $link .= Traceback_uri();
