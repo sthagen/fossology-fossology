@@ -9,7 +9,7 @@
 #
 # Description: Docker container image recipe
 
-FROM debian:buster-slim as builder
+FROM debian:bullseye-slim as builder
 LABEL org.opencontainers.image.authors="Fossology <fossology@fossology.org>"
 LABEL org.opencontainers.image.source="https://github.com/fossology/fossology"
 LABEL org.opencontainers.image.vendor="FOSSology"
@@ -21,7 +21,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       git \
       lsb-release \
-      php7.3-cli \
+      php7.4-cli \
       sudo \
       cmake \
       ninja-build \
@@ -40,6 +40,7 @@ COPY ./src/scancode/mod_deps ./src/scancode/
 COPY ./src/scheduler/mod_deps ./src/scheduler/
 COPY ./src/ununpack/mod_deps ./src/ununpack/
 COPY ./src/wget_agent/mod_deps ./src/wget_agent/
+COPY ./src/scanoss/mod_deps ./src/scanoss/
 
 RUN mkdir -p /fossology/dependencies-for-runtime \
  && cp -R /fossology/src /fossology/utils /fossology/dependencies-for-runtime/
@@ -53,9 +54,9 @@ COPY . .
 
 RUN cmake -DCMAKE_BUILD_TYPE=MinSizeRel -S. -B./build -G Ninja \
  && cmake --build ./build --parallel \
- && ninja -C ./build install
+ && cmake --install build
 
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 
 LABEL org.opencontainers.image.authors="Fossology <fossology@fossology.org>"
 LABEL org.opencontainers.image.url="https://fossology.org"
