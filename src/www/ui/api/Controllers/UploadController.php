@@ -24,6 +24,8 @@ use Fossology\UI\Api\Helper\ResponseHelper;
 use Fossology\UI\Api\Helper\UploadHelper;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
+use Fossology\UI\Api\Models\License;
+use Fossology\UI\Api\Models\Obligation;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\Psr7\Factory\StreamFactory;
 
@@ -488,6 +490,8 @@ class UploadController extends RestController
   {
     $id = intval($args['id']);
     $query = $request->getQueryParams();
+    $page = $request->getHeaderLine("page");
+    $limit = $request->getHeaderLine("limit");
 
     if (! array_key_exists(self::AGENT_PARAM, $query)) {
       $error = new Info(400, "'agent' parameter missing from query.",
@@ -528,9 +532,33 @@ class UploadController extends RestController
       return $agentScheduled;
     }
 
+    /*
+     * check if page && limit are numeric, if existing
+     */
+    if ((! ($page==='') && (! is_numeric($page) || $page < 1)) ||
+      (! ($limit==='') && (! is_numeric($limit) || $limit < 1))) {
+      $returnVal = new Info(400,
+        "Bad Request. page and limit need to be positive integers!",
+        InfoType::ERROR);
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+
+    // set page to 1 by default
+    if (empty($page)) {
+      $page = 1;
+    }
+
+    // set limit to 50 by default and max as 1000
+    if (empty($limit)) {
+      $limit = 50;
+    } else if ($limit > 1000) {
+      $limit = 1000;
+    }
+
     $uploadHelper = new UploadHelper();
-    $licenseList = $uploadHelper->getUploadLicenseList($id, $agents, $containers, $license, $copyright);
-    return $response->withJson($licenseList, 200);
+    list($licenseList, $count) = $uploadHelper->getUploadLicenseList($id, $agents, $containers, $license, $copyright, $page-1, $limit);
+    $totalPages = intval(ceil($count / $limit));
+    return $response->withHeader("X-Total-Pages", $totalPages)->withJson($licenseList, 200);
   }
 
    /**
@@ -836,5 +864,57 @@ class UploadController extends RestController
     $res["publicPerm"] = $publicPerm;
     $res["permGroups"] = $finalPermGroups;
     return $response->withJson($res, 200);
+  }
+  /**
+   * Get the main licenses for the upload
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getMainLicenses($request, $response, $args)
+  {
+    $uploadId = intval($args['id']);
+    if (!$this->dbHelper->doesIdExist("upload", "upload_pk", $uploadId)) {
+      $returnVal = new Info(404, "Upload does not exist", InfoType::ERROR);
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+
+    $clearingDao = $this->container->get('dao.clearing');
+    $licenseIds = $clearingDao->getMainLicenseIds($uploadId, $this->restHelper->getGroupId());
+    $licenseDao = $this->container->get('dao.license');
+    $licenses = array();
+
+    foreach ($licenseIds as $key => $value) {
+      $licenseId = intval($value);
+      $obligations = $licenseDao->getLicenseObligations([$licenseId],
+        false);
+      $obligations = array_merge($obligations,
+        $licenseDao->getLicenseObligations([$licenseId], true));
+      $obligationList = [];
+      foreach ($obligations as $obligation) {
+        $obligationList[] = new Obligation(
+          $obligation['ob_pk'],
+          $obligation['ob_topic'],
+          $obligation['ob_type'],
+          $obligation['ob_text'],
+          $obligation['ob_classification'],
+          $obligation['ob_comment']
+        );
+      }
+      $license = $licenseDao->getLicenseById($licenseId);
+      $licenseObj = new License(
+        $license->getId(),
+        $license->getShortName(),
+        $license->getFullName(),
+        $license->getText(),
+        $license->getUrl(),
+        $obligationList,
+        $license->getRisk()
+      );
+      $licenses[] = $licenseObj->getArray();
+    }
+    return $response->withJson($licenses, 200);
   }
 }
