@@ -28,6 +28,7 @@ use Fossology\UI\Api\Controllers\FolderController;
 use Fossology\UI\Api\Controllers\GroupController;
 use Fossology\UI\Api\Controllers\InfoController;
 use Fossology\UI\Api\Controllers\JobController;
+use Fossology\UI\Api\Controllers\CopyrightController;
 use Fossology\UI\Api\Controllers\LicenseController;
 use Fossology\UI\Api\Controllers\MaintenanceController;
 use Fossology\UI\Api\Controllers\ReportController;
@@ -151,8 +152,17 @@ $app->group('/uploads',
     $app->get('/{id:\\d+}/download', UploadController::class . ':uploadDownload');
     $app->get('/{id:\\d+}/copyrights', UploadController::class . ':getUploadCopyrights');
     $app->get('/{id:\\d+}/licenses/main', UploadController::class . ':getMainLicenses');
+    $app->post('/{id:\\d+}/licenses/main', UploadController::class . ':setMainLicense');
+    $app->delete('/{id:\\d+}/licenses/{shortName:[\\w\\- \\.]+}/main', UploadController::class . ':removeMainLicense');
     $app->get('/{id:\\d+}/item/{itemId:\\d+}/view', UploadTreeController::class. ':viewLicenseFile');
     $app->put('/{id:\\d+}/item/{itemId}/clearing-decision', UploadTreeController::class . ':setClearingDecision');
+    $app->get('/{id:\\d+}/item/{itemId:\\d+}/copyrights', CopyrightController::class . ':getFileCopyrights');
+    $app->delete('/{id:\\d+}/item/{itemId:\\d+}/copyrights/{hash:.*}', CopyrightController::class . ':deleteFileCopyrights');
+    $app->put('/{id:\\d+}/item/{itemId:\\d+}/copyrights/{hash:.*}', CopyrightController::class . ':updateFileCopyrights');
+    $app->get('/{id:\\d+}/item/{itemId:\\d+}/prev-next', UploadTreeController::class . ':getNextPreviousItem');
+    $app->get('/{id:\\d+}/item/{itemId:\\d+}/bulk-history', UploadTreeController::class . ':getBulkHistory');
+    $app->get('/{id:\\d+}/item/{itemId:\\d+}/clearing-history', UploadTreeController::class . ':getClearingHistory');
+    $app->get('/{id:\\d+}/item/{itemId:\\d+}/highlight', UploadTreeController::class . ':getHighlightEntries');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 

@@ -156,6 +156,7 @@ class UploadControllerTest extends \PHPUnit\Framework\TestCase
     $this->clearingDao = M::mock(ClearingDao::class);
     $this->licenseDao = M::mock(LicenseDao::class);
 
+
     $this->dbManager->shouldReceive('getSingleRow')
       ->withArgs([M::any(), [$this->groupId, UploadStatus::OPEN,
         Auth::PERM_READ]]);
@@ -170,7 +171,8 @@ class UploadControllerTest extends \PHPUnit\Framework\TestCase
       ->andReturn($this->folderDao);
     $this->restHelper->shouldReceive('getUserDao')
       ->andReturn($this->userDao);
-
+    $container->shouldReceive('get')->withArgs(['dao.license'])->andReturn(
+      $this->licenseDao);
     $container->shouldReceive('get')->withArgs(array(
       'dao.clearing'))->andReturn($this->clearingDao);
     $container->shouldReceive('get')->withArgs(array(
@@ -967,5 +969,128 @@ class UploadControllerTest extends \PHPUnit\Framework\TestCase
     $actualResponse = $this->uploadController->getMainLicenses(null, new ResponseHelper(), ['id' => $uploadId]);
     $this->assertEquals($expectedResponse->getStatusCode(), $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse), $this->getResponseJson($actualResponse));
+  }
+
+
+  /**
+   * @test
+   * -# Test for UploadController::setMainLicense()
+   * -# Check if response status is 200 and Res body matches
+   */
+  public function testSetMainLicense()
+  {
+    $uploadId = 2;
+    $shortName = "MIT";
+    $licenseId = 1;
+    $rq = [
+      "shortName" => $shortName,
+    ];
+    $license = new License(2, $shortName, "MIT License", "risk", "texts", [],
+      'type', 1);
+    $licenseIds[$licenseId] = $licenseId;
+    $this->dbHelper->shouldReceive('doesIdExist')
+      ->withArgs(["upload", "upload_pk", $uploadId])->andReturn(true);
+    $this->licenseDao->shouldReceive('getLicenseByShortName')
+      ->withArgs([$shortName, $this->groupId])->andReturn($license);
+    $this->clearingDao->shouldReceive('getMainLicenseIds')->withArgs([$uploadId, $this->groupId])->andReturn($licenseIds);
+    $this->clearingDao->shouldReceive('makeMainLicense')
+      ->withArgs([$uploadId, $this->groupId, $license->getId()])->andReturn(null);
+
+    $info = new Info(200, "Successfully added new main license", InfoType::INFO);
+
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(), $info->getCode());
+    $reqBody = $this->streamFactory->createStream(json_encode(
+      $rq
+    ));
+    $requestHeaders = new Headers();
+    $requestHeaders->setHeader('Content-Type', 'application/json');
+    $request = new Request("POST", new Uri("HTTP", "localhost"),
+      $requestHeaders, [], [], $reqBody);
+
+    $actualResponse = $this->uploadController->setMainLicense($request, new ResponseHelper(), ['id' => $uploadId]);
+
+    $this->assertEquals($expectedResponse->getStatusCode(),
+      $actualResponse->getStatusCode());
+    $this->assertEquals($this->getResponseJson($expectedResponse),
+      $this->getResponseJson($actualResponse));
+  }
+
+  /**
+   * @test
+   * -# Test for UploadController::setMainLicense()
+   * -# Check if response status is 400, when the license already Exists and Res body matches
+   */
+  public function testSetMainLicense_exists()
+  {
+    $uploadId = 2;
+    $shortName = "MIT";
+    $licenseId = 1;
+    $rq = [
+      "shortName" => $shortName,
+    ];
+    $license = new License($licenseId, $shortName, "MIT License", "risk", "texts", [],
+     'type', 1);
+    $licenseIds[$licenseId] = $licenseId;
+    $this->dbHelper->shouldReceive('doesIdExist')
+      ->withArgs(["upload", "upload_pk", $uploadId])->andReturn(true);
+    $this->licenseDao->shouldReceive('getLicenseByShortName')
+      ->withArgs([$shortName, $this->groupId])->andReturn($license);
+    $this->clearingDao->shouldReceive('getMainLicenseIds')->withArgs([$uploadId, $this->groupId])->andReturn($licenseIds);
+    $this->clearingDao->shouldReceive('makeMainLicense')
+      ->withArgs([$uploadId, $this->groupId, $license->getId()])->andReturn(null);
+
+    $info = new Info(400, 'License already exists for this upload.', InfoType::ERROR);
+
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(), $info->getCode());
+    $reqBody = $this->streamFactory->createStream(json_encode(
+      $rq
+    ));
+    $requestHeaders = new Headers();
+    $requestHeaders->setHeader('Content-Type', 'application/json');
+    $request = new Request("POST", new Uri("HTTP", "localhost"),
+      $requestHeaders, [], [], $reqBody);
+
+    $actualResponse = $this->uploadController->setMainLicense($request, new ResponseHelper(), ['id' => $uploadId]);
+
+    $this->assertEquals($expectedResponse->getStatusCode(),
+      $actualResponse->getStatusCode());
+    $this->assertEquals($this->getResponseJson($expectedResponse),
+      $this->getResponseJson($actualResponse));
+  }
+
+
+  /**
+   * @test
+   * -# Test for UploadController::removeMainLicense()
+   * -# Check if response status is 200 and the body matches
+   */
+  public function testRemoveMainLicense()
+  {
+    $uploadId = 3;
+    $licenseId = 1;
+    $shortName = "MIT";
+    $license = new License($licenseId, $shortName, "MIT License", "risk", "texts", [],
+      'type', 1);
+    $licenseIds[$licenseId] = $licenseId;
+
+    $this->dbHelper->shouldReceive('doesIdExist')
+      ->withArgs(["upload", "upload_pk", $uploadId])->andReturn(true);
+    $this->dbHelper->shouldReceive('doesIdExist')
+      ->withArgs(["license_ref", "rf_pk", $licenseId])->andReturn(true);
+    $this->clearingDao->shouldReceive('getMainLicenseIds')->withArgs([$uploadId, $this->groupId])->andReturn($licenseIds);
+    
+    $this->clearingDao->shouldReceive('removeMainLicense')->withArgs([$uploadId, $this->groupId, $licenseId])->andReturn(null);
+    $this->licenseDao->shouldReceive('getLicenseByShortName')
+      ->withArgs([$shortName, $this->groupId])->andReturn($license);
+
+    $info = new Info(200, "Main license removed successfully.", InfoType::INFO);
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
+      $info->getCode());
+    $actualResponse = $this->uploadController->removeMainLicense(null,
+      new ResponseHelper(), ['id' => $uploadId, 'shortName' => $shortName]);
+    $this->assertEquals($expectedResponse->getStatusCode(),
+      $actualResponse->getStatusCode());
+    $this->assertEquals($this->getResponseJson($expectedResponse),
+      $this->getResponseJson($actualResponse));
   }
 }

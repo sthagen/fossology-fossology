@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2017-2022 Siemens AG
+# SPDX-FileCopyrightText: © 2017-2023 Siemens AG
 # SPDX-FileCopyrightText: © 2021 Orange by Piotr Pszczola <piotr.pszczola@orange.com>
 
 # SPDX-License-Identifier: GPL-2.0-only
@@ -7,7 +7,7 @@ openapi: 3.0.3
 info:
   title: FOSSology API
   description: Automate your fossology instance using REST API
-  version: 1.5.2
+  version: 1.5.3
   contact:
     email: fossology@fossology.org
   license:
@@ -29,6 +29,8 @@ tags:
     description: Basic info about API
   - name: Upload
     description: Endpoints related to uploads
+  - name: Copyrights
+    description: Copyright information
   - name: Organize
     description: Endpoints for organization of data
   - name: Search
@@ -535,8 +537,7 @@ paths:
             type: boolean
             default: false
         - name: uploadType
-          description: >
-            Type of upload done. Required for VCS, URL and server uploads
+          description: Type of upload done. Choose `file` if uploading a file.
           in: header
           required: true
           schema:
@@ -923,6 +924,81 @@ paths:
                   $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+  /uploads/{id}/item/{itemId}/highlight:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+      - name: itemId
+        required: true
+        description: Id of the item
+        in: path
+        schema:
+          type: integer
+      - name: clearingId
+        required: false
+        description: Id of the clearing event
+        in: query
+        schema:
+          type: integer
+      - name: licenseId
+        required: false
+        description: Id of the license
+        in: query
+        schema:
+          type: integer
+      - name: highlightId
+        required: false
+        description: Id of the highlight
+        in: query
+        schema:
+          type: integer
+      - name: agentId
+        required: false
+        description: Id of the agent
+        in: query
+        schema:
+          type: integer
+    get:
+      operationId: getHighlightEntries
+      tags:
+        - Upload
+      summary: Get highlight entries of the content.
+      description: >
+        Get highlight entries of the content for the given upload and item id.
+      responses:
+        '200':
+          description: List of the data about highlight entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HighlightInfo'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Resource Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+          
   /uploads/{id}/item/{itemId}/view:
     parameters:
       - name: id
@@ -967,8 +1043,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-          $ref: '#/components/responses/defaultResponse'  
-  
+          $ref: '#/components/responses/defaultResponse'
+
   /uploads/{id}/item/{itemId}/clearing-decision:
     parameters:
       - name: id
@@ -1018,6 +1094,53 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+  
+  /uploads/{id}/item/{itemId}/bulk-history:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+      - name: itemId
+        required: true
+        description: Id of the itemId
+        in: path
+        schema:
+          type: integer
+    get:
+      operationId: getBulkHistory
+      tags:
+        - Upload
+      summary: Get the bulk history
+      description: >
+        Get the bulk history for a specific upload item
+      responses:
+        '200':
+          description: List of the data about the bulk history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GetBulkHistory'
+        '404':
+          description: Resource Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+
   /uploads/{id}/licenses/main:
     parameters:
       - name: id
@@ -1056,6 +1179,187 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+    post:
+      operationId: setMainLicense
+      tags:
+        - Upload
+      summary: Set the main license for the upload
+      description: >
+        Set the main license for a particular upload.
+      requestBody:
+        description: MainLicense payload
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetMainLicense'
+      responses:
+        '200':
+          description: Main license set successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '400':
+          description: Short name missing from request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+  /uploads/{id}/licenses/{shortName}/main:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+      - name: shortName
+        required: true
+        description: shortName of the main license to be deleted
+        in: path
+        schema:
+          type: string
+    delete:
+      operationId: deleteMainLicense
+      tags:
+        - Upload
+      summary: Delete a main license from an upload
+      description: >
+        Delete a main license from an upload.
+      responses:
+        '200':
+          description: License is removed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+          
+  /uploads/{id}/item/{itemId}/prev-next:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+      - name: itemId
+        required: true
+        description: Id of the itemId
+        in: path
+        schema:
+          type: integer
+      - name: selection
+        required: false
+        schema:
+          type: string
+          enum:
+            - withLicenses
+            - noClearing
+        in: query
+        description: Return jobs for the given upload id only
+    get:
+      operationId: getPreviousAndNextItem
+      tags:
+        - Upload
+      summary: Get previous and next item for an upload
+      description: >
+        Get the index of the previous and the next time for an upload
+      responses:
+        '200':
+          description: List of the data about clearing history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPrevNextItem'
+        '404':
+          description: Resource Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+
+  /uploads/{id}/item/{itemId}/clearing-history:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+      - name: itemId
+        required: true
+        description: Id of the itemId
+        in: path
+        schema:
+          type: integer
+    get:
+      operationId: getClearingHistory
+      tags:
+        - Upload
+      summary: Get the clearing history
+      description: >
+        Get the clearing history for a specific upload item
+      responses:
+        '200':
+          description: List of the data about clearing history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetClearingHistory'
+        '404':
+          description: Resource Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
 
   /search:
     get:
@@ -1453,6 +1757,76 @@ paths:
 
         default:
           $ref: '#/components/responses/defaultResponse'
+
+  /uploads/{id}/item/{itemId}/copyrights:
+    parameters:
+      - name: id
+        required: true
+        description: Upload Id
+        in: path
+        schema:
+          type: integer
+      - name: itemId
+        required: true
+        description: UploadTree ID
+        in: path
+        schema:
+          type: integer
+      - name: status
+        required: true
+        in: query
+        description: status of the copyright
+        schema:
+          type: string
+          enum:
+              - active
+              - inactive
+      - name: limit
+        description: Limits of responses per request
+        required: false
+        in: header
+        schema:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+      - name: page
+        description: Page number for responses
+        required: false
+        in: header
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+    get:
+      operationId: getFileCopyrights
+      tags:
+        - Copyrights
+      summary: Get the copyrights of the mentioned upload tree ID
+      description: Returns the list of copyrights associated with the file
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Total-Pages:
+              description: Total number of pages which can be generated based on limit
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GetFileCopyrights'
+        '400':
+          description: "Bad Request. 'upload' is a required query param"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
   /jobs:
     parameters:
       - name: groupName
@@ -1689,6 +2063,79 @@ paths:
                 $ref: '#/components/schemas/Info'
         '500':
           description: Failed to kill job.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+  /uploads/{id}/item/{itemId}/copyrights/{hash}:
+    parameters:
+      - name: id
+        required: true
+        description: upload ID
+        in: path
+        schema:
+          type: integer
+      - name: itemId
+        required: true
+        description: Upload tree ID
+        in: path
+        schema:
+          type: integer
+      - name: hash
+        required: true
+        description: copyright hash
+        in: path
+        schema:
+          type: string
+    delete:
+      operationId: deleteFileCopyrights
+      tags:
+        - Copyrights
+      summary: Deletes a copyright for a file
+      description: Deletes a copyright statement for a particular file
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Info'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+    put:
+      operationId: updateFileCopyrights
+      tags:
+        - Copyrights
+      summary: Updates a copyright for a file
+      description: Updates a copyright statement for a particular file
+      requestBody:
+        description: updateCopyright Payload
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetCopyrightInfo'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Info'
+        '403':
+          description: Access denied
           content:
             application/json:
               schema:
@@ -2791,6 +3238,12 @@ components:
         copyrightCount:
           type: integer
           description: No. of copyrights found in the upload.
+    SetCopyrightInfo:
+      type: object
+      properties:
+        content:
+          type: string
+          description: Copyright text
     Job:
       type: object
       properties:
@@ -3179,6 +3632,19 @@ components:
             link:
               description: Link to download the report
               type: string
+    GetFileCopyrights:
+      description: Copyright details of a file
+      type: object
+      properties:
+        content:
+          type: string
+          description: Copyright content
+        hash:
+          type: string
+          description: copyright hash
+        copyright_count:
+          type: integer
+          description: count of the copyrights
     ShowJob:
       description: History of all the jobs and the job queue info
       type: object
@@ -3363,6 +3829,145 @@ components:
           type: string
           example:
             "Main group"
+    GetPrevNextItem:
+      type: object
+      properties:
+        prevItemId:
+          description: Previous item Id
+          type: integer
+          example:
+            1
+        nextItemId:
+          description: Next item Id
+          type: integer
+          example:
+            3
+                       
+    GetBulkHistory:
+      type: object
+      properties:
+        bulkId:
+          type: integer
+          description: The bulk id
+          example: 1
+        clearingEventId:
+          type: integer
+          description: The event id associated with the bulk
+          example: 1
+        text:
+          type: string
+          description: Scan reference text
+          example: "Licensed under MIT"
+        matched:
+          type: boolean
+          description: Whether matched or not
+          example: false
+        tried:
+          type: boolean
+          description: Whether tried or not
+          example: true
+        addedLicenses:
+          type: array
+          description: List of license shortnames added to the scan
+          items:
+            type: string
+            example: "MIT"
+        removedLicenses:
+          type: array
+          description: List of license shortnames removed from the scan
+          items:
+            type: string
+            example: "GPL-2.0"
+
+    GetClearingHistory:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          description: Date of the clearing history
+          example: "2023-06-15"
+        username:
+          type: string
+          description: Username of the user who created the decision.
+          example: "fossy"
+        scope:
+          type: string
+          description: Scope of the clearing
+          enum:
+            - local
+            - package
+            - global
+        type:
+          type: string
+          description: Type of the clearing
+          enum:
+            - TO_BE_DISCUSSED
+            - IRRELEVANT
+            - IDENTIFIED
+            - DO_NOT_USE
+            - NON_FUNCTIONAL
+        addedLicenses:
+          type: array
+          description: List of license shortnames added to the decision
+          items:
+            type: string
+            example: "MIT"
+        removedLicenses:
+          type: array
+          description: List of license shortnames removed from the decision
+          items:
+            type: string
+            example: "GPL-2.0"
+            
+    HighlightInfo:
+      type: object
+      properties:
+        start:
+          type: integer
+          description: Start position of the highlight in file
+          example: 68
+        end:
+          type: integer
+          description: End position of the highlight in file
+          example: 70
+        type:
+          type: string
+          description: Type of highlight
+          enum:
+            - M | Match
+            - MC | Changed
+            - MA | Added
+            - MD | Deleted
+            - S | Signature
+            - K | Keyword
+            - B | Bulk
+            - C | Copyright
+            - U | Url
+            - E | Email
+            - A | Author
+            - I | IPRA
+            - X | ECC
+            - KW | Keyword others
+            - any | Undefined
+        shortName:
+          type: string
+          description: License shortname
+          example: MIT
+        refStart:
+          type: integer
+          description: Start of monk diff highlight (relative)
+          example: 0
+        refEnd:
+          type: integer
+          description: End of monk diff highlight (relative)
+          example: 53
+        infoText:
+          type: string
+          description: Tooltip text
+          example: "MIT: 'MIT License\n\nCopyright (c) <year> <copyright holders>'"
+        htmlElement:
+          type: string
     UserGroupMember:
       type: object
       properties:
@@ -3545,6 +4150,14 @@ components:
           description: |
             Is the decision global?
             If true, the decision is applied to all occurrence of the file on the server!
+    SetMainLicense:
+      description: Set Main License information
+      type: object
+      properties:
+        shortName:
+          type: string
+          description: short name of the license
+          example: MIT
     AddMember:
       description: UserMember options
       type: object
