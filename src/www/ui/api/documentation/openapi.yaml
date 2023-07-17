@@ -1140,7 +1140,6 @@ paths:
         default:
           $ref: '#/components/responses/defaultResponse'
 
-
   /uploads/{id}/licenses/main:
     parameters:
       - name: id
@@ -1316,7 +1315,6 @@ paths:
         default:
           $ref: '#/components/responses/defaultResponse'
 
-
   /uploads/{id}/item/{itemId}/clearing-history:
     parameters:
       - name: id
@@ -1360,7 +1358,87 @@ paths:
         default:
           $ref: '#/components/responses/defaultResponse'
 
+  /uploads/{id}/clearing-progress:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+    get:
+      operationId: getClearingProgressInfo
+      tags:
+        - Upload
+      summary: Get the clearing progress info
+      description: >
+        Get the clearing progress information for an upload
+      responses:
+        '200':
+          description: Get clearing progress info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClearingProgressInfo'
+        '404':
+          description: Resource Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
 
+  /uploads/{id}/licenses/histogram:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+      - name: agentId
+        required: false
+        description: Id of the agent
+        in: query
+        schema:
+          type: integer
+    get:
+      operationId: getLicensesHistogram
+      tags:
+        - Upload
+      summary: Get the licenses histogram
+      description: >
+        Get the licenses histogram for a specific upload
+      responses:
+        '200':
+          description: Get the licenses histogram for the upload
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LicenseHistogram'
+        '404':
+          description: Resource Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description: Internal server error with details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
   /search:
     get:
       operationId: searchFile
@@ -2021,7 +2099,6 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
             $ref: '#/components/responses/defaultResponse'
-
   /jobs/{id}/{queue}:
     parameters:
       - name: id
@@ -2095,6 +2172,29 @@ paths:
         - Copyrights
       summary: Deletes a copyright for a file
       description: Deletes a copyright statement for a particular file
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Info'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+    patch:
+      operationId: restoreFileCopyrights
+      tags:
+        - Copyrights
+      summary: Restores a copyright for a file
+      description: Restores a copyright statement for a particular file
       responses:
         '200':
           description: OK
@@ -2319,6 +2419,72 @@ paths:
       responses:
         '202':
           description: Folder will be copied/moved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+  /uploads/{id}/item/{ItemId}/totalcopyrights:
+    parameters:
+      - name: id
+        required: true
+        description: Upload Id
+        in: path
+        schema:
+          type: integer
+      - name: ItemId
+        required: true
+        description: Upload Tree ID
+        in: path
+        schema:
+          type: integer
+      - name: status
+        required: true
+        in: query
+        description: status of the copyright
+        schema:
+          type: string
+          enum:
+              - active
+              - inactive
+    get:
+      operationId: getTotalFileCopyrights
+      tags:
+        - Copyrights
+      summary: Get the total copyrights of the mentioned upload tree ID
+      description: Returns the total number of copyrights associated with the file
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - type: object
+                      properties:
+                        total_copyrights:
+                          type: integer
+                          description: Total Number of copyrights for the uploadtree
+                          example:
+                            125
+        '400':
+          description: "Bad Request. 'upload' is a required query param"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '403':
+          description: Upload is not accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Upload does not exist
           content:
             application/json:
               schema:
@@ -3968,6 +4134,34 @@ components:
           example: "MIT: 'MIT License\n\nCopyright (c) <year> <copyright holders>'"
         htmlElement:
           type: string
+    ClearingProgressInfo:
+      type: object
+      properties:
+        totalFilesOfInterest:
+          description: Total number of targeted files to be cleared
+          type: integer
+          example:
+            234
+        totalFilesCleared:
+          description: Total number of files cleared
+          type: integer
+          example:
+            200
+    LicenseHistogram:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 357
+        name:
+          type: string
+          example: "ACE"
+        scannerCount:
+          type: integer
+          example: 0
+        concludedCount:
+          type: integer
+          example: 1
     UserGroupMember:
       type: object
       properties:
@@ -4116,6 +4310,30 @@ components:
           description: Date from which to remove older log files from repository.
           nullable: true
           example: "2022-07-16"
+    ScannedEditedLicense:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 29
+        name:
+          type: string
+          example: Apache-2.0
+        details:
+          type: object
+          properties:
+            count:
+              type: integer
+              example: 1
+            unique:
+              type: integer
+              example: 1
+            rf_pk:
+              type: integer
+              example: 29
+            spdx_id:
+              type: string
+              example: Apache-2.0
     NewGroupPermission:
       description: User Group permission update
       type: object
