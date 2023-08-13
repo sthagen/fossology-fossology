@@ -1,6 +1,7 @@
 <?php
 /*
  SPDX-FileCopyrightText: © 2021 HH Partners
+ SPDX-FileCopyrightText: © 2023 Samuel Dushimimana <dushsam100@gmail.com>
 
  SPDX-License-Identifier: GPL-2.0-only
 */
@@ -12,6 +13,7 @@
 namespace Fossology\UI\Api\Controllers;
 
 use Fossology\Lib\Auth\Auth;
+use Fossology\Lib\Dao\LicenseAcknowledgementDao;
 use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Exception;
 use Fossology\Lib\Util\StringOperation;
@@ -53,6 +55,12 @@ class LicenseController extends RestController
    */
   private $licenseDao;
 
+  /**
+   * @var LicenseAcknowledgementDao $adminLicenseAckDao
+   * LicenseAcknowledgementDao object
+   */
+  private $adminLicenseAckDao;
+
 
   /**
    * @param ContainerInterface $container
@@ -61,6 +69,7 @@ class LicenseController extends RestController
   {
     parent::__construct($container);
     $this->licenseDao = $this->container->get('dao.license');
+    $this->adminLicenseAckDao = $this->container->get('dao.license.acknowledgement');
   }
 
   /**
@@ -462,5 +471,118 @@ class LicenseController extends RestController
       }
     }
     return $response->withJson($resInfo->getArray(), $resInfo->getCode());
+  }
+
+  /**
+   * Get all admin license acknowledgements
+   *
+   * @param Request $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getAllAdminAcknowledgements($request, $response, $args)
+  {
+    if (!Auth::isAdmin()) {
+      $error = new Info(403, "You are not allowed to access the endpoint.", InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+    $res = $this->adminLicenseAckDao->getAllAcknowledgements();
+
+    foreach ($res as $key => $ack) {
+      $res[$key]['id'] = intval($ack['la_pk']);
+      unset($res[$key]['la_pk']);
+      $res[$key]['is_enabled'] = $ack['is_enabled'] == "t";
+    }
+
+    return $response->withJson($res, 200);
+  }
+
+  /**
+   * Add, Edit & toggle admin license acknowledgement.
+   *
+   * @param Request $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function handleAdminLicenseAcknowledgement($request, $response, $args)
+  {
+    $body = $this->getParsedBody($request);
+    $errors = [];
+    $success = [];
+
+    if (!isset($body) || empty($body)) {
+      $error = new Info(400, "Request body is missing or empty.", InfoType::ERROR);
+      $errors[] = $error->getArray();
+    } else if (!is_array($body)) {
+      $error = new Info(400, "Request body should be an array.", InfoType::ERROR);
+      $errors[] = $error->getArray();
+    } else {
+      foreach (array_keys($body) as $index) {
+        $ackReq = $body[$index];
+        if ((!$ackReq['update'] && empty($ackReq['name'])) || ($ackReq['update'] && empty($ackReq['name']) && !$ackReq['toggle'])) {
+          $error = new Info(400, "Acknowledgement name missing from the request #" . ($index + 1), InfoType::ERROR);
+          $errors[] = $error->getArray();
+          continue;
+        } else if ((!$ackReq['update'] && empty($ackReq['ack'])) || ($ackReq['update'] && empty($ackReq['ack']) && !$ackReq['toggle'])) {
+          $error = new Info(400, "Acknowledgement text missing from the request #" . ($index + 1), InfoType::ERROR);
+          $errors[] = $error->getArray();
+          continue;
+        }
+
+        if ($ackReq['update']) {
+
+          if (empty($ackReq['id'])) {
+            $error = new Info(400, "Acknowledgement ID missing from the request #" . ($index + 1), InfoType::ERROR);
+            $errors[] = $error->getArray();
+            continue;
+          }
+
+          $sql = "SELECT la_pk, name FROM license_std_acknowledgement WHERE la_pk = $1;";
+          $existingAck = $this->dbHelper->getDbManager()->getSingleRow($sql, [$ackReq['id']]);
+
+          if (empty($existingAck)) {
+            $error = new Info(404, "Acknowledgement not found for the request #" . ($index + 1), InfoType::ERROR);
+            $errors[] = $error->getArray();
+            continue;
+          } else if ($existingAck["name"] != $ackReq["name"] && $this->dbHelper->doesIdExist("license_std_acknowledgement", "name", $ackReq["name"])) {
+            $error = new Info(400, "Name already exists.", InfoType::ERROR);
+            $errors[] = $error->getArray();
+            continue;
+          }
+
+          if ($ackReq["name"] && $ackReq["ack"]) {
+            $this->adminLicenseAckDao->updateAcknowledgement($ackReq["id"], $ackReq["name"], $ackReq["ack"]);
+          }
+
+          if ($ackReq["toggle"]) {
+            $this->adminLicenseAckDao->toggleAcknowledgement($ackReq["id"]);
+          }
+
+          $info = new Info(200, "Successfully updated admin license acknowledgement with name '" . $existingAck["name"] . "'", InfoType::INFO);
+          $success[] = $info->getArray();
+        } else {
+
+          if ($this->dbHelper->doesIdExist("license_std_acknowledgement", "name", $ackReq["name"])) {
+            $error = new Info(400, "Name already exists for the request #" . ($index + 1), InfoType::ERROR);
+            $errors[] = $error->getArray();
+            continue;
+          }
+          $res = $this->adminLicenseAckDao->insertAcknowledgement($ackReq["name"], $ackReq["ack"]);
+          if ($res == -2) {
+            $error = new Info(500, "Error while inserting new acknowledgement.", InfoType::ERROR);
+            $errors[] = $error->getArray();
+            continue;
+          }
+          $info = new Info(201, "Acknowledgement added successfully.", InfoType::INFO);
+          $success[] = $info->getArray();
+        }
+      }
+    }
+    return $response->withJson([
+      'success' => $success,
+      'errors' => $errors
+    ], 200);
   }
 }

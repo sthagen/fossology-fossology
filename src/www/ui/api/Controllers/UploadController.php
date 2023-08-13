@@ -7,6 +7,7 @@
 
  SPDX-License-Identifier: GPL-2.0-only
 */
+
 /**
  * @file
  * @brief Controller for upload queries
@@ -16,6 +17,7 @@ namespace Fossology\UI\Api\Controllers;
 
 use Fossology\DelAgent\UI\DeleteMessages;
 use Fossology\Lib\Auth\Auth;
+use Fossology\Lib\Dao\AgentDao;
 use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Data\AgentRef;
 use Fossology\Lib\Data\UploadStatus;
@@ -28,6 +30,7 @@ use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
 use Fossology\UI\Api\Models\License;
 use Fossology\UI\Api\Models\Obligation;
+use Fossology\UI\Api\Models\ScannedLicense;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\Psr7\Factory\StreamFactory;
 
@@ -103,11 +106,18 @@ class UploadController extends RestController
    */
   private $agentNames = AgentRef::AGENT_LIST;
 
+  /**
+   * @var AgentDao $agentDao
+   * Agent Dao object
+   */
+  private $agentDao;
+
   public function __construct($container)
   {
     parent::__construct($container);
     $groupId = $this->restHelper->getGroupId();
     $dbManager = $this->dbHelper->getDbManager();
+    $this->agentDao = $this->container->get('dao.agent');
     $uploadBrowseProxy = new UploadBrowseProxy($groupId, 0, $dbManager, false);
     $uploadBrowseProxy->sanity();
   }
@@ -305,17 +315,40 @@ class UploadController extends RestController
   public function getUploadSummary($request, $response, $args)
   {
     $id = intval($args['id']);
+    $query = $request->getQueryParams();
+    $selectedAgentId = $query['agentId'];
+    $agentDao = $this->container->get('dao.agent');
     $upload = $this->uploadAccessible($this->restHelper->getGroupId(), $id);
     if ($upload !== true) {
       return $response->withJson($upload->getArray(), $upload->getCode());
+    } else if ($selectedAgentId !== null && !$this->dbHelper->doesIdExist("agent", "agent_pk", $selectedAgentId)) {
+      $error = new Info(404, "Agent does not exist", InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
     }
     $temp = $this->isAdj2nestDone($id, $response);
     if ($temp !== true) {
       return $temp;
     }
     $uploadHelper = new UploadHelper();
-    $uploadSummary = $uploadHelper->generateUploadSummary($id,
-      $this->restHelper->getGroupId());
+    $uploadSummary = $uploadHelper->generateUploadSummary($id, $this->restHelper->getGroupId());
+    $browseLicense = $this->restHelper->getPlugin('license');
+    $uploadDao = $this->restHelper->getUploadDao();
+    $uploadTreeTableName = $uploadDao->getUploadtreeTableName($id);
+    $itemTreeBounds = $uploadDao->getParentItemBounds($id, $uploadTreeTableName);
+    $scanJobProxy = new ScanJobProxy($agentDao, $id);
+    $scannerAgents = array_keys(AgentRef::AGENT_LIST);
+    $scanJobProxy->createAgentStatus($scannerAgents);
+    $selectedAgentIds = empty($selectedAgentId) ? $scanJobProxy->getLatestSuccessfulAgentIds() : $selectedAgentId;
+    $res = $browseLicense->createLicenseHistogram("", "", $itemTreeBounds, $selectedAgentIds, $this->restHelper->getGroupId());
+    $uploadSummary->setUniqueConcludedLicenses($res['editedUniqueLicenseCount']);
+    $uploadSummary->setTotalConcludedLicenses($res['editedLicenseCount']);
+    $uploadSummary->setTotalLicenses($res['scannerLicenseCount']);
+    $uploadSummary->setUniqueLicenses($res['uniqueLicenseCount']);
+    $uploadSummary->setConcludedNoLicenseFoundCount($res['editedNoLicenseFoundCount']);
+    $uploadSummary->setFileCount($res['fileCount']);
+    $uploadSummary->setNoScannerLicenseFoundCount($res['noScannerLicenseFoundCount']);
+    $uploadSummary->setScannerUniqueLicenseCount($res['scannerUniqueLicenseCount']);
+
     return $response->withJson($uploadSummary->getArray(), 200);
   }
 
@@ -1127,5 +1160,168 @@ class UploadController extends RestController
       ];
     }
     return $response->withJson($outputArray, 200);
+  }
+  /**
+   * Get all the groups with their respective permissions for a upload
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getAllAgents($request, $response, $args)
+  {
+    $uploadId = intval($args['id']);
+
+    if (!$this->dbHelper->doesIdExist("upload", "upload_pk", $uploadId)) {
+      $returnVal = new Info(404, "Upload does not exist", InfoType::ERROR);
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+
+    $scannerAgents = array_keys($this->agentNames);
+    $agentDao = $this->container->get('dao.agent');
+    $scanJobProxy = new ScanJobProxy($agentDao, $uploadId);
+    $res = $scanJobProxy->createAgentStatus($scannerAgents);
+
+    foreach ($res as &$item) {
+      if (count($item['successfulAgents']) > 0) {
+        $item['isAgentRunning'] = false;
+      } else {
+        $item['currentAgentId'] = $agentDao->getCurrentAgentRef($item["agentName"])->getAgentId();
+        $item['currentAgentRev'] = "";
+      }
+      foreach ($item['successfulAgents'] as &$agent) {
+        $agent['agent_id'] = intval($agent['agent_id']);
+      }
+    }
+    return $response->withJson($res, 200);
+  }
+
+  /**
+   * Get all edited licenses for the entire upload
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getEditedLicenses($request, $response, $args)
+  {
+    $clearingDao = $this->container->get('dao.clearing');
+    $licenseDao = $this->container->get('dao.license');
+
+    $uploadId = intval($args['id']);
+    if (!$this->dbHelper->doesIdExist("upload", "upload_pk", $uploadId)) {
+      $returnVal = new Info(404, "Upload does not exist", InfoType::ERROR);
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+    $uploadDao = $this->restHelper->getUploadDao();
+    $uploadTreeTableName = $uploadDao->getUploadtreeTableName($uploadId);
+    $itemTreeBounds = $uploadDao->getParentItemBounds($uploadId, $uploadTreeTableName);
+    $res = $clearingDao->getClearedLicenseIdAndMultiplicities($itemTreeBounds, $this->restHelper->getGroupId());
+    $outputArray = [];
+
+    foreach ($res as $key => $value) {
+      $outputArray[] = [
+        "id" => intval($value["rf_pk"]),
+        "shortName" => $key,
+        "count" =>intval($value["count"]),
+        "spdx_id" => $value["spdx_id"],
+      ];
+    }
+    return $response->withJson($outputArray, 200);
+  }
+
+  /**
+   * Get Reuse report summary for the upload
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getReuseReportSummary($request, $response, $args)
+  {
+    $uploadId = intval($args['id']);
+
+    if (!$this->dbHelper->doesIdExist("upload", "upload_pk", $uploadId)) {
+      $returnVal = new Info(404, "Upload does not exist", InfoType::ERROR);
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+
+    $reuseReportProcess = $this->container->get('businessrules.reusereportprocessor');
+    $res = $reuseReportProcess->getReuseSummary($uploadId);
+    return $response->withJson($res, 200);
+  }
+
+  /**
+   * Get all scanned licenses for the entire upload
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getScannedLicenses($request, $response, $args)
+  {
+    $uploadId = intval($args['id']);
+    $query = $request->getQueryParams();
+    $selectedAgentId = $query['agentId'];
+    $licenseDao = $this->container->get('dao.license');
+
+    if (!$this->dbHelper->doesIdExist("upload", "upload_pk", $uploadId)) {
+      $returnVal = new Info(404, "Upload does not exist", InfoType::ERROR);
+    } else if ($selectedAgentId !== null && !$this->dbHelper->doesIdExist("agent", "agent_pk", $selectedAgentId)) {
+      $returnVal = new Info(404, "Agent does not exist", InfoType::ERROR);
+    }
+    if (isset($returnVal)) {
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+    $scannerAgents = array_keys(AgentRef::AGENT_LIST);
+    $scanJobProxy = new ScanJobProxy($this->agentDao, $uploadId);
+    $scanJobProxy->createAgentStatus($scannerAgents);
+    $uploadDao = $this->restHelper->getUploadDao();
+    $uploadTreeTableName = $uploadDao->getUploadtreeTableName($uploadId);
+    $itemTreeBounds = $uploadDao->getParentItemBounds($uploadId, $uploadTreeTableName);
+    $selectedAgentIds = empty($selectedAgentId) ? $scanJobProxy->getLatestSuccessfulAgentIds() : $selectedAgentId;
+    $res = $licenseDao->getLicenseHistogram($itemTreeBounds, $selectedAgentIds);
+    $outputArray = [];
+
+    foreach ($res as $key => $value) {
+      $scannedLicense = new ScannedLicense($licenseDao->getLicenseByShortName($key)->getId(), $key, $value['count'], $value['unique'], $value['spdx_id']);
+      $outputArray[] = $scannedLicense->getArray();
+    }
+    return $response->withJson($outputArray, 200);
+  }
+  /**
+   * Get all the revisions for the successful agents of an upload
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getAgentsRevision($request, $response, $args)
+  {
+    $agentDao = $this->container->get('dao.agent');
+    $uploadId = intval($args['id']);
+
+    if (!$this->dbHelper->doesIdExist("upload", "upload_pk", $uploadId)) {
+      $returnVal = new Info(404, "Upload does not exist", InfoType::ERROR);
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+    $scannerAgents = array_keys($this->agentNames);
+    $scanJobProxy = new ScanJobProxy($agentDao, $uploadId);
+    $scanJobProxy->createAgentStatus($scannerAgents);
+
+    $res = array();
+    foreach ($scanJobProxy->getSuccessfulAgents() as $agent) {
+      $res[] = array(
+        "id" => $agent->getAgentId(),
+        "name" => $agent->getAgentName(),
+        "revision" => $agent->getAgentRevision(),
+      );
+    }
+    return $response->withJson($res, 200);
   }
 }

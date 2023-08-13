@@ -14,13 +14,22 @@ namespace Fossology\UI\Api\Controllers;
 
 use Fossology\Lib\Data\DecisionScopes;
 use Fossology\Lib\Data\DecisionTypes;
+use Fossology\Lib\BusinessRules\ClearingDecisionProcessor;
+use Fossology\Lib\BusinessRules\LicenseMap;
+use Fossology\Lib\Dao\ClearingDao;
+use Fossology\Lib\Dao\HighlightDao;
+use Fossology\Lib\Dao\LicenseDao;
+use Fossology\Lib\Data\Clearing\ClearingEventTypes;
+use Fossology\Lib\Data\Clearing\ClearingResult;
 use Fossology\UI\Api\Helper\ResponseHelper;
 use Fossology\UI\Api\Models\BulkHistory;
 use Fossology\UI\Api\Models\ClearingHistory;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
+use Fossology\UI\Api\Models\LicenseDecision;
+use Fossology\UI\Api\Models\Obligation;
+use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ServerRequestInterface;
-
 
 /**
  * @class UploadTreeController
@@ -28,6 +37,29 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 class UploadTreeController extends RestController
 {
+  /**
+   * @var ContainerInterface $container
+   * Slim container
+   */
+  protected $container;
+
+  /** @var ClearingDao */
+  private $clearingDao;
+
+  /**
+   * @var LicenseDao $licenseDao
+   * License Dao object
+   */
+  private $licenseDao;
+
+  /**
+   * @var HighlightDao $highlightDao
+   * HighlightDao object
+   */
+  private $highlightDao;
+
+  /** @var ClearingDecisionProcessor */
+  private $clearingDecisionEventProcessor;
 
   /**
    * @var DecisionTypes $decisionTypes
@@ -39,6 +71,12 @@ class UploadTreeController extends RestController
   public function __construct($container)
   {
     parent::__construct($container);
+    $this->clearingDao = $this->container->get('dao.clearing');
+    $this->licenseDao = $this->container->get('dao.license');
+    $this->highlightDao = $container->get("dao.highlight");
+    $this->clearingDecisionEventProcessor = $container->get('businessrules.clearing_decision_processor');
+    $this->clearingDao = $this->container->get('dao.clearing');
+    $this->licenseDao = $this->container->get('dao.license');
     $this->decisionTypes = $this->container->get('decision.types');
   }
 
@@ -92,6 +130,7 @@ class UploadTreeController extends RestController
       ->withHeader("Etag", md5($response->getBody()));
   }
 
+
   /**
    * Set the clearing decision for a particular upload-tree
    *
@@ -140,6 +179,7 @@ class UploadTreeController extends RestController
       return $response->withJson($returnVal->getArray(), $returnVal->getCode());
     }
   }
+
   /**
    * Get the next and previous item for a given upload and itemId
    *
@@ -275,7 +315,7 @@ class UploadTreeController extends RestController
       }
       ksort($removedLicenses, SORT_STRING);
       ksort($addedLicenses, SORT_STRING);
-      $obj =  new ClearingHistory(date('Y-m-d', $clearingDecision->getTimeStamp()), $clearingDecision->getUserName(), $scope->getTypeName($clearingDecision->getScope()), $this->decisionTypes->getConstantNameFromKey($clearingDecision->getType()), $addedLicenses, $removedLicenses);
+      $obj = new ClearingHistory(date('Y-m-d', $clearingDecision->getTimeStamp()), $clearingDecision->getUserName(), $scope->getTypeName($clearingDecision->getScope()), $this->decisionTypes->getConstantNameFromKey($clearingDecision->getType()), $addedLicenses, $removedLicenses);
       $data[] = $obj->getArray();
     }
     return $response->withJson($data, 200);
@@ -332,5 +372,391 @@ class UploadTreeController extends RestController
       $transformedRes[] = $value->getArray();
     }
     return $response->withJson($transformedRes, 200);
+  }
+
+    /**
+   * Get the tree view of the upload
+   *
+   * @param Request $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getTreeView($request, $response, $args)
+  {
+    $uploadTreeId = intval($args['itemId']);
+    $uploadId = intval($args['id']);
+    $query = $request->getQueryParams();
+    $agentId = $query['agentId'] ?? null;
+    $flatten = $query['flatten'] ?? null;
+    $scanFilter = $query['scanLicenseFilter'] ?? null;
+    $editedFilter = $query['editedLicenseFilter'] ?? null;
+    $sortDir = $query['sort'] ?? null;
+    $page = $request->getHeaderLine('page');
+    $limit = $request->getHeaderLine('limit');
+    $tagId = $query['tagId'] ?? null;
+    $sSearch = $query['search'] ?? null;
+    $openCBoxFilter = $query['filterOpen'] ?? null;
+    $show = ($query['showQuick'] !== null && $query['showQuick'] !== 'false') ? true : null;
+    $licenseDao = $this->container->get('dao.license');
+
+    $uploadDao = $this->restHelper->getUploadDao();
+    $returnVal = null;
+
+    if (!$this->dbHelper->doesIdExist("upload", "upload_pk", $uploadId)) {
+      $returnVal = new Info(404, "Upload does not exist", InfoType::ERROR);
+    } else if (!$this->dbHelper->doesIdExist($uploadDao->getUploadtreeTableName($uploadId), "uploadtree_pk", $uploadTreeId)) {
+      $returnVal = new Info(404, "Item does not exist", InfoType::ERROR);
+    } else if ($agentId !== null && !$this->dbHelper->doesIdExist("agent", "agent_pk", $agentId)) {
+      $returnVal = new Info(404, "Agent does not exist", InfoType::ERROR);
+    } else if ($tagId !== null && !$this->dbHelper->doesIdExist("tag", "tag_pk", $tagId)) {
+      $returnVal = new Info(404, "Given Tag does not exist", InfoType::ERROR);
+    } else if ($openCBoxFilter !== null && ($openCBoxFilter !== 'true' && $openCBoxFilter !== 'false')) {
+      $returnVal = new Info(400, "openCBoxFilter must be a boolean value", InfoType::ERROR);
+    } else if ($flatten !== null && ($flatten !== 'true' && $flatten !== 'false')) {
+      $returnVal = new Info(400, "flatten must be a boolean value", InfoType::ERROR);
+    } else if ($sortDir != null && !($sortDir == "asc" || $sortDir == "desc")) {
+      $returnVal = new Info(400, "sortDirection must be asc or desc", InfoType::ERROR);
+    } else if ($page != null && (!is_numeric($page) || intval($page) < 1)) {
+      $returnVal = new Info(400, "page should be positive integer Greater or Equal to 1", InfoType::ERROR);
+    } else if ($show != null && $show != 'true' && $show != 'false') {
+      $returnVal = new Info(400, "show must be a boolean value", InfoType::ERROR);
+    } else if ($limit != null && (!is_numeric($limit) || intval($limit) < 1)) {
+      $returnVal = new Info(400, "limit must be a positive integer Greater Or Equal to 1", InfoType::ERROR);
+    } else {
+      $queryKeys = array_keys($query);
+      $allowedKeys = ['showQuick', 'agentId', 'flatten', 'scanLicenseFilter', 'editedLicenseFilter', 'sort', 'tagId', 'search', 'filterOpen'];
+      $diff = array_diff($queryKeys, $allowedKeys);
+      if (count($diff) > 0) {
+        $returnVal = new Info(400, "Invalid query parameter(s) : " . implode(",", $diff), InfoType::ERROR);
+      }
+    }
+
+    if ($returnVal != null) {
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+
+    if ($editedFilter !== null) {
+      $license = $licenseDao->getLicenseByShortName($editedFilter, $this->restHelper->getGroupId());
+      if ($license === null) {
+        $returnVal = new Info(404, "Edited License filter $editedFilter does not exist", InfoType::ERROR);
+        return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+      } else {
+        $editedFilter = $license->getId();
+      }
+    }
+
+    if ($scanFilter !== null) {
+      $license = $licenseDao->getLicenseByShortName($scanFilter, $this->restHelper->getGroupId());
+      if ($license === null) {
+        $returnVal = new Info(404, "Scan License filter $scanFilter does not exist", InfoType::ERROR);
+        return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+      } else {
+        $scanFilter = $license->getId();
+      }
+    }
+
+    if ($page == null) {
+      $page = 1;
+    }
+    if ($limit == null) {
+      $limit = 50;
+    }
+
+    if ($show) {
+      $uploadTreeId = $uploadDao->getFatItemId($uploadTreeId, $uploadId, $uploadDao->getUploadtreeTableName($uploadId));
+    }
+
+    $ajaxExplorerPlugin = $this->restHelper->getPlugin('ajax_explorer');
+    $symfonyRequest = new \Symfony\Component\HttpFoundation\Request();
+    $symfonyRequest->request->set('agentId', $agentId);
+    $symfonyRequest->request->set('tag', $tagId);
+    $symfonyRequest->request->set('item', $uploadTreeId);
+    $symfonyRequest->request->set('upload', $uploadId);
+    $symfonyRequest->request->set('fromRest', true);
+    $symfonyRequest->request->set('flatten', ($flatten !== null && $flatten !== 'false') ? true : null);
+    $symfonyRequest->request->set('openCBoxFilter', $openCBoxFilter);
+    $symfonyRequest->request->set('show', $show ? "quick" : null);
+    $symfonyRequest->request->set('iSortingCols', "1");
+    $symfonyRequest->request->set('bSortable_0', "true");
+    $symfonyRequest->request->set('iSortCol_0', "0");
+    $symfonyRequest->request->set('sSortDir_0', $sortDir != null ? $sortDir : 'asc');
+    $symfonyRequest->request->set('iDisplayStart', (intval($page) - 1) * intval($limit));
+    $symfonyRequest->request->set('iDisplayLength', intval($limit));
+    $symfonyRequest->request->set("sSearch", $sSearch);
+    $symfonyRequest->request->set("conFilter", $editedFilter);
+    $symfonyRequest->request->set("scanFilter", $scanFilter);
+
+    $res = $ajaxExplorerPlugin->handle($symfonyRequest);
+
+    return $response->withJson(json_decode($res->getContent(), true)["aaData"], 200);
+  }
+
+  /**
+   * Get all license decisions for a particular upload-tree
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getLicenseDecisions($request, $response, $args)
+  {
+    $uploadTreeId = intval($args['itemId']);
+    $uploadPk = intval($args['id']);
+    $returnVal = null;
+    $uploadDao = $this->restHelper->getUploadDao();
+    $licenses = [];
+
+    if (!$this->dbHelper->doesIdExist("upload", "upload_pk", $uploadPk)) {
+      $returnVal = new Info(404, "Upload does not exist", InfoType::ERROR);
+    } else if (!$this->dbHelper->doesIdExist($uploadDao->getUploadtreeTableName($uploadPk), "uploadtree_pk", $uploadTreeId)) {
+      $returnVal = new Info(404, "Item does not exist", InfoType::ERROR);
+    }
+
+    if ($returnVal !== null) {
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+
+    $itemTreeBounds = $uploadDao->getItemTreeBoundsFromUploadId($uploadTreeId, $uploadPk);
+    if ($itemTreeBounds->containsFiles()) {
+      $returnVal = new Info(400, "Item expected to be a file, container sent.", InfoType::ERROR);
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+
+    list ($addedClearingResults, $removedLicenses) = $this->clearingDecisionEventProcessor->getCurrentClearings(
+      $itemTreeBounds, $this->restHelper->getGroupId(), LicenseMap::CONCLUSION);
+    $licenseEventTypes = new ClearingEventTypes();
+
+    $mergedArray = [];
+
+    foreach ($addedClearingResults as $item) {
+      $mergedArray[] = ['item' => $item, 'isRemoved' => false];
+    }
+
+    foreach ($removedLicenses as $item) {
+      $mergedArray[] = ['item' => $item, 'isRemoved' => true];
+    }
+
+    $mainLicIds = $this->clearingDao->getMainLicenseIds($uploadPk, $this->restHelper->getGroupId());
+
+    foreach ($mergedArray as $item) {
+      $clearingResult = $item['item'];
+      $licenseShortName = $clearingResult->getLicenseShortName();
+      $licenseId = $clearingResult->getLicenseId();
+
+      $types = $this->getAgentInfo($clearingResult);
+      $reportInfo = "";
+      $comment = "";
+      $acknowledgement = "";
+
+      if ($clearingResult->hasClearingEvent()) {
+        $licenseDecisionEvent = $clearingResult->getClearingEvent();
+        $types[] = $this->getEventInfo($licenseDecisionEvent, $licenseEventTypes);
+        $reportInfo = $licenseDecisionEvent->getReportinfo();
+        $comment = $licenseDecisionEvent->getComment();
+        $acknowledgement = $licenseDecisionEvent->getAcknowledgement();
+      }
+
+      $obligations = $this->licenseDao->getLicenseObligations([$licenseId], false);
+      $obligations = array_merge($obligations, $this->licenseDao->getLicenseObligations([$licenseId], true));
+      $obligationList = [];
+      foreach ($obligations as $obligation) {
+        $obligationList[] = new Obligation(
+          $obligation['ob_pk'],
+          $obligation['ob_topic'],
+          $obligation['ob_type'],
+          $obligation['ob_text'],
+          $obligation['ob_classification'],
+          $obligation['ob_comment']
+        );
+      }
+      $license = $this->licenseDao->getLicenseById($licenseId);
+      $licenseObj = new LicenseDecision(
+        $license->getId(),
+        $licenseShortName,
+        $license->getFullName(),
+        $item['isRemoved'] ? '-' : (!empty($reportInfo) ? $reportInfo : $license->getText()),
+        $license->getUrl(),
+        $types,
+        $item['isRemoved'] ? '-' : $acknowledgement,
+        $item['isRemoved'] ? '-' : $comment,
+        in_array($license->getId(), $mainLicIds),
+        $obligationList,
+        $license->getRisk(),
+        $item['isRemoved']
+      );
+      $licenses[] = $licenseObj->getArray();
+    }
+    return $response->withJson($licenses, 200);
+  }
+
+  /**
+   * @param ClearingResult $licenseDecisionResult
+   */
+  private function getAgentInfo(ClearingResult $licenseDecisionResult)
+  {
+    $agentResults = array();
+    foreach ($licenseDecisionResult->getAgentDecisionEvents() as $agentDecisionEvent) {
+      $agentId = $agentDecisionEvent->getAgentId();
+      $matchId = $agentDecisionEvent->getMatchId();
+      $highlightRegion = $this->highlightDao->getHighlightRegion($matchId);
+      $page = null;
+      $percentage = $agentDecisionEvent->getPercentage();
+      if ($highlightRegion[0] != "" && $highlightRegion[1] != "") {
+        $page = $this->highlightDao->getPageNumberOfHighlightEntry($matchId);
+      }
+      $result = array(
+        'name' => $agentDecisionEvent->getAgentName(),
+        'clearingId' => null,
+        'agentId' => $agentId,
+        'highlightId' => $matchId,
+        'page' => intval($page),
+        'percentage' => $percentage
+      );
+      $agentResults[] = $result;
+    }
+    return $agentResults;
+  }
+
+  private function getEventInfo($licenseDecisionEvent, $licenseEventTypes)
+  {
+    $type = $licenseEventTypes->getTypeName($licenseDecisionEvent->getEventType());
+    $eventId = null;
+    if ($licenseDecisionEvent->getEventType() == ClearingEventTypes::BULK) {
+      $eventId = $licenseDecisionEvent->getEventId();
+    }
+    return array(
+      'name' => $type,
+      'clearingId' => $eventId,
+      'agentId' => null,
+      'highlightId' => null,
+      'page' => null,
+      'percentage' => null
+    );
+  }
+
+  /**
+   * Handle add, edit and delete license decision
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function handleAddEditAndDeleteLicenseDecision($request, $response, $args)
+  {
+    $body = $this->getParsedBody($request);
+    $uploadTreeId = intval($args['itemId']);
+    $uploadId = intval($args['id']);
+    $uploadDao = $this->restHelper->getUploadDao();
+    $errors = [];
+    $success = [];
+
+    if (!isset($body) || empty($body)) {
+      $error = new Info(400, "Request body is missing or empty.", InfoType::ERROR);
+      $errors[] = $error->getArray();
+    } else if (!is_array($body)) {
+      $error = new Info(400, "Request body should be an array.", InfoType::ERROR);
+      $errors[] = $error->getArray();
+    } else if (!$this->dbHelper->doesIdExist("upload", "upload_pk", $uploadId)) {
+      $error = new Info(404, "Upload does not exist", InfoType::ERROR);
+      $errors[] = $error->getArray();
+    } else if (!$this->dbHelper->doesIdExist($uploadDao->getUploadtreeTableName($uploadTreeId), "uploadtree_pk", $uploadTreeId)) {
+      $error = new Info(404, "Item does not exist", InfoType::ERROR);
+      $errors[] = $error->getArray();
+    } else {
+      $concludeLicensePlugin = $this->restHelper->getPlugin('conclude-license');
+      $res = $concludeLicensePlugin->getCurrentSelectedLicensesTableData($uploadDao->getItemTreeBoundsFromUploadId($uploadTreeId, $uploadId), $this->restHelper->getGroupId(), true);
+      $existingLicenseIds = [];
+      foreach ($res as $license) {
+        $currId = $license['DT_RowId'];
+        $currId = explode(',', $currId)[1];
+        $existingLicenseIds[] = intval($currId);
+      }
+
+      foreach (array_keys($body) as $index) {
+        $licenseReq = $body[$index];
+
+        $shortName = $licenseReq['shortName'];
+        if (empty($shortName)) {
+          $error = new Info(400, "Short name missing from the request #" . ($index + 1), InfoType::ERROR);
+          $errors[] = $error->getArray();
+          continue;
+        }
+
+        $existingLicense = $this->licenseDao->getLicenseByShortName($shortName, $this->restHelper->getGroupId());
+        if ($existingLicense === null) {
+          $error = new Info(404, "License file with short name '$shortName' not found.",
+            InfoType::ERROR);
+          $errors[] = $error->getArray();
+          continue;
+        }
+
+        if (!isset($licenseReq['add'])) {
+          $error = new Info(400, "'add' property missing from the request #" . ($index + 1), InfoType::ERROR);
+          $errors[] = $error->getArray();
+          continue;
+        }
+
+        if ($licenseReq['add']) {
+          $columnsToUpdate = [];
+          if (isset($licenseReq['text'])) {
+            $columnsToUpdate[] = [
+              'columnId' => 'reportinfo',
+              'value' => $licenseReq['text']
+            ];
+          }
+          if (isset($licenseReq['ack'])) {
+            $columnsToUpdate[] = [
+              'columnId' => 'acknowledgement',
+              'value' => $licenseReq['ack']
+            ];
+          }
+          if (isset($licenseReq['comment'])) {
+            $columnsToUpdate[] = [
+              'columnId' => 'comment',
+              'value' => $licenseReq['comment']
+            ];
+          }
+
+          if (in_array($existingLicense->getId(), $existingLicenseIds)) {
+            $valText = "";
+            foreach (array_keys($columnsToUpdate) as $colIdx) {
+              $this->clearingDao->updateClearingEvent($uploadTreeId, $this->restHelper->getUserId(), $this->restHelper->getGroupId(), $existingLicense->getId(), $columnsToUpdate[$colIdx]['columnId'], $columnsToUpdate[$colIdx]['value']);
+              if ($colIdx == count($columnsToUpdate) - 1 && count($columnsToUpdate) > 1) {
+                $valText .= " and ";
+              } else if ($colIdx > 0 && count($columnsToUpdate) > 1) {
+                $valText .= ", ";
+              }
+              $valText .= $columnsToUpdate[$colIdx]['columnId'];
+            }
+            $val = new Info(200, "Successfully updated " . $shortName . "'s license " . $valText, InfoType::INFO);
+            $success[] = $val->getArray();
+          } else {
+            $this->clearingDao->insertClearingEvent($uploadTreeId, $this->restHelper->getUserId(), $this->restHelper->getGroupId(), $existingLicense->getId(), false);
+            foreach (array_keys($columnsToUpdate) as $colIdx) {
+              $this->clearingDao->updateClearingEvent($uploadTreeId, $this->restHelper->getUserId(), $this->restHelper->getGroupId(), $existingLicense->getId(), $columnsToUpdate[$colIdx]['columnId'], $columnsToUpdate[$colIdx]['value']);
+            }
+            $val = new Info(200, "Successfully added " . $shortName . " as a new license decision.", InfoType::INFO);
+            $success[] = $val->getArray();
+          }
+        } else {
+          if (!in_array($existingLicense->getId(), $existingLicenseIds)) {
+            $error = new Info(404, $shortName . " license does not exist on this item", InfoType::ERROR);
+            $errors[] = $error->getArray();
+            continue;
+          }
+          $this->clearingDao->insertClearingEvent($uploadTreeId, $this->restHelper->getUserId(), $this->restHelper->getGroupId(), $existingLicense->getId(), true);
+          $val = new Info(200, "Successfully deleted " . $shortName . " from license decision list.", InfoType::INFO);
+          $success[] = $val->getArray();
+        }
+      }
+    }
+
+    return $response->withJson([
+      'success' => $success,
+      'errors' => $errors
+    ], 200);
   }
 }

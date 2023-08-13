@@ -155,10 +155,10 @@ class AjaxClearingView extends FO_Plugin
    * @param $groupId
    * @param $uploadId
    * @param $uploadTreeId
-   * @internal param $itemTreeBounds
    * @return string
+   *@internal param $itemTreeBounds
    */
-  protected function doClearings($orderAscending, $groupId, $uploadId, $uploadTreeId)
+  public function doClearings($orderAscending, $groupId, $uploadId, $uploadTreeId)
   {
     $itemTreeBounds = $this->uploadDao->getItemTreeBoundsFromUploadId($uploadTreeId, $uploadId);
     $aaData = $this->getCurrentSelectedLicensesTableData($itemTreeBounds,
@@ -277,7 +277,7 @@ class AjaxClearingView extends FO_Plugin
    * @param boolean $orderAscending
    * @return array
    */
-  protected function getCurrentSelectedLicensesTableData(ItemTreeBounds $itemTreeBounds, $groupId, $orderAscending)
+  public function getCurrentSelectedLicensesTableData(ItemTreeBounds $itemTreeBounds, $groupId, $orderAscending)
   {
     $uploadTreeId = $itemTreeBounds->getItemId();
     $uploadId = $itemTreeBounds->getUploadId();
