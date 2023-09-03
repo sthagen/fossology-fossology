@@ -7,7 +7,7 @@ openapi: 3.0.3
 info:
   title: FOSSology API
   description: Automate your fossology instance using REST API
-  version: 1.5.4
+  version: 1.5.5
   contact:
     email: fossology@fossology.org
   license:
@@ -16,6 +16,8 @@ info:
 servers:
   - url: http://localhost/repo/api/v1
     description: Localhost instance
+  - url: http://localhost/repo/api/v2
+    description: Localhost instance (Version 2)
 security:
   - bearerAuth: []
   - oauth: []
@@ -1137,7 +1139,57 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
-  
+
+  /uploads/{id}/item/{itemId}/bulk-scan:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+      - name: itemId
+        required: true
+        description: Id of the itemId
+        in: path
+        schema:
+          type: integer
+    post:
+      operationId: scheduleBulkScan
+      tags:
+        - Upload
+      summary: Schedule the bulk scan for the item
+      description: >
+        Schedule the bulk scan for the item
+      requestBody:
+        description: ClearingInfo payload
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleBulkScan'
+      responses:
+        '200':
+          description: Bulk scan scheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Resource Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
   /uploads/{id}/item/{itemId}/bulk-history:
     parameters:
       - name: id
@@ -2557,6 +2609,31 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
             $ref: '#/components/responses/defaultResponse'
+  /jobs/dashboard/statistics:
+    get:
+      operationId: getJobStatistics
+      tags:
+        - Job
+      summary: Get the statistics of all the jobs
+      description: Returns the statistics of all the jobs for the Admin Dashboard
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GetJobStatistics'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
   /jobs/{id}/{queue}:
     parameters:
       - name: id
@@ -3814,7 +3891,6 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
-
     put:
       operationId: mutateAdminLicenseAcknowledgement
       tags:
@@ -3845,6 +3921,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+  /license/stdcomments:
+    get:
+      operationId: getAllStandardLicenseComments
+      tags:
+        - License
+      summary: Get all standard license comments
+      description: >
+        Get a list of all standard license comments.
+      responses:
+        '200':
+          description: Request is successful
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StandardComment'
         default:
           $ref: '#/components/responses/defaultResponse'
 components:
@@ -5155,6 +5251,48 @@ components:
           description: Date from which to remove older log files from repository.
           nullable: true
           example: "2022-07-16"
+    ScheduleBulkScan:
+      type: object
+      properties:
+        bulkActions:
+          type: array
+          items:
+            type: object
+            properties:
+              licenseShortName:
+                type: string
+                example: MIT
+              licenseText:
+                type: string
+                example: "License text"
+              acknowledgement:
+                type: string
+                example: "Acknowledgement text"
+              comment:
+                type: string
+                example: "Comment text"
+              licenseAction:
+                type: string
+                enum:
+                  - ADD
+                  - REMOVE
+        refText:
+          type: string
+          example: "reference text"
+        bulkScope:
+          type: string
+          enum:
+            - folder
+            - upload
+        forceDecision:
+          type: boolean
+          example: false
+        ignoreIrre:
+          type: boolean
+          example: false
+        delimiters:
+          type: string
+          example: "DEFAULT"
     ScannedEditedLicense:
       type: object
       properties:
@@ -5531,6 +5669,40 @@ components:
             If true, update the given admin acknowledgement.
             if false, add new admin acknowledgement.
           example: true
+    StandardComment:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 2
+          description: The primary key of the comment.
+        name:
+          type: string
+          example: firstComment
+          description: The name of the comment.
+        comment:
+          type: string
+          example: The comment's text
+          description: The text content of the comment.
+        is_enabled:
+          type: boolean
+          example: true
+          description: Indicates whether the comment is enabled or not.
+    GetJobStatistics:
+      type: object
+      properties:
+        agentName:
+          type: string
+          description: "Name of the agent"
+          example: "monkbulk"
+        agentDesc:
+          type: string
+          description: "Description of the agent"
+          example: "monkbulk agent"
+        firedJobs:
+          type: integer
+          description: "Number of fired jobs"
+          example: 23
   responses:
     defaultResponse:
       description: Some error occurred. Check the "message"
