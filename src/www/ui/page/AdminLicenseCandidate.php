@@ -189,13 +189,13 @@ class AdminLicenseCandidate extends DefaultPlugin
     return $row;
   }
 
-  private function suggestLicenseId($str)
+  public function suggestLicenseId($str, $fromRest = false)
   {
     /* @var $monkOneShotPlugin \Fossology\Monk\UI\Oneshot */
     $monkOneShotPlugin = plugin_find("oneshot-monk");
 
     if (null !== $monkOneShotPlugin) {
-      return $monkOneShotPlugin->scanMonkRendered($str);
+      return $monkOneShotPlugin->scanMonkRendered($str, $fromRest);
     } else {
       return array(array(), $str);
     }
@@ -207,7 +207,7 @@ class AdminLicenseCandidate extends DefaultPlugin
    * @param int $rfParent
    * @return bool
    */
-  private function verifyCandidate($rf, $shortname, $rfParent)
+  public function verifyCandidate($rf, $shortname, $rfParent)
   {
     /* @var $licenseDao LicenseDao */
     $licenseDao = $this->getObject('dao.license');
@@ -231,7 +231,7 @@ class AdminLicenseCandidate extends DefaultPlugin
     return true;
   }
 
-  private function mergeCandidate($candidate, $suggest, $vars)
+  public function mergeCandidate($candidate, $suggest, $vars)
   {
     /** @var DbManager */
     $dbManager = $this->getObject('db.manager');

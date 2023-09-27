@@ -715,4 +715,167 @@ class LicenseController extends RestController
       'errors' => $errors
     ], 200);
   }
+
+  /**
+   * Verify the license as new or having a variant
+   *
+   * @param Request $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function verifyLicense($request, $response, $args)
+  {
+    $licenseShortName = $args["shortname"];
+    $body = $this->getParsedBody($request);
+    $parentName = $body["parentShortname"];
+
+    if (!Auth::isAdmin()) {
+      $resInfo = new Info(403, "Only admin can perform this operation.",
+        InfoType::ERROR);
+      return $response->withJson($resInfo->getArray(), $resInfo->getCode());
+    }
+    if (empty($licenseShortName) || empty($parentName)) {
+      $error = new Info(400, "License ShortName or Parent ShortName is missing.", InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    $license = $this->licenseDao->getLicenseByShortName($licenseShortName, $this->restHelper->getGroupId());
+    if ($licenseShortName != $parentName) {
+      $parentLicense = $this->licenseDao->getLicenseByShortName($parentName, $this->restHelper->getGroupId());
+    } else {
+      $parentLicense = $license;
+    }
+
+    if (empty($license) || empty($parentLicense)) {
+      $error = new Info(404, "License not found.", InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    try{
+      $adminLicenseCandidate = $this->restHelper->getPlugin('admin_license_candidate');
+      $ok = $adminLicenseCandidate->verifyCandidate($license->getId(), $licenseShortName, $parentLicense->getId());
+    } catch (\Throwable $th) {
+      $error = new Info(400, 'The license text already exists.', InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    if ($ok) {
+      $with = $parentLicense->getId() === $license->getId() ? '' : " as variant of ($parentName).";
+      $info = new Info(200, 'Successfully verified candidate ('.$licenseShortName.')'.$with, InfoType::INFO);
+    } else {
+      $info = new Info(400, 'Short name must be unique', InfoType::ERROR);
+    }
+    return $response->withJson($info->getArray(), $info->getCode());
+  }
+
+  /**
+   * merge the license
+   *
+   * @param Request $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function mergeLicense($request, $response, $args)
+  {
+    $licenseShortName = $args["shortname"];
+    $body = $this->getParsedBody($request);
+    $parentName = $body["parentShortname"];
+
+    if (!Auth::isAdmin()) {
+      $error = new Info(403, "Only admin can perform this operation.",
+        InfoType::ERROR);
+    } else if (empty($licenseShortName) || empty($parentName)) {
+      $error = new Info(400, "License ShortName or Parent ShortName is missing.", InfoType::ERROR);
+    } else if ($licenseShortName == $parentName) {
+      $error = new Info(400, "License ShortName and Parent ShortName are same.", InfoType::ERROR);
+    }
+
+    if (isset($error)) {
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    $license = $this->licenseDao->getLicenseByShortName($licenseShortName, $this->restHelper->getGroupId());
+    $mergeLicense = $this->licenseDao->getLicenseByShortName($parentName, $this->restHelper->getGroupId());
+
+    if (empty($license) || empty($mergeLicense)) {
+      $error = new Info(404, "License not found.", InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    $adminLicenseCandidate = $this->restHelper->getPlugin('admin_license_candidate');
+    $vars = $adminLicenseCandidate->getDataRow($license->getId());
+    if ($vars === false) {
+      $error = new Info(404, 'invalid license candidate', InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    try {
+      $vars['shortname'] = $vars['rf_shortname'];
+      $ok = $adminLicenseCandidate->mergeCandidate($license->getId(), $mergeLicense->getId(), $vars);
+    } catch (\Throwable $th) {
+      $error = new Info(400, 'The license text already exists.', InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    if ($ok) {
+      $info = new Info(200, "Successfully merged candidate ($parentName) into ($licenseShortName).", InfoType::INFO);
+    } else {
+      $info = new Info(501, 'Sorry, this feature is not ready yet.', InfoType::ERROR);
+    }
+    return $response->withJson($info->getArray(), $info->getCode());
+  }
+
+  /**
+   * Get suggested license from reference text
+   *
+   * @param Request $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getSuggestedLicense($request, $response, $args)
+  {
+    $body =  $this->getParsedBody($request);
+    $rfText = $body["referenceText"];
+    if (!Auth::isAdmin()) {
+      $resInfo = new Info(403, "Only admin can perform this operation.",
+        InfoType::ERROR);
+      return $response->withJson($resInfo->getArray(), $resInfo->getCode());
+    }
+    if (empty($rfText)) {
+      $error = new Info(400, "Reference text is missing.", InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+    $adminLicenseCandidate = $this->restHelper->getPlugin('admin_license_candidate');
+
+    list ($suggestIds, $rendered) = $adminLicenseCandidate->suggestLicenseId($rfText, true);
+
+    $highlights = [];
+
+    foreach ($rendered as $value) {
+      $highlights[] = $value->getArray();
+    }
+
+    if (! empty($suggestIds)) {
+      $suggest = $suggestIds[0];
+      $suggestLicense = $adminLicenseCandidate->getDataRow($suggest, 'ONLY license_ref');
+      $suggestLicense = [
+        'id' => intval($suggestLicense['rf_pk']),
+        'spdxName' => $suggestLicense['rf_spdx_id'],
+        'shortName' => $suggestLicense['rf_shortname'],
+        'fullName' => $suggestLicense['rf_fullname'],
+        'text' => $suggestLicense['rf_text'],
+        'url' => $suggestLicense['rf_url'],
+        'notes' => $suggestLicense['rf_notes'],
+        'risk' => intval($suggestLicense['rf_risk']),
+        'highlights' => $highlights,
+      ];
+    }
+    if (empty($suggestLicense)) {
+      $suggestLicense = new \stdClass();
+    }
+    return $response->withJson($suggestLicense, 200);
+  }
 }

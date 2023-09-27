@@ -528,4 +528,54 @@ class JobController extends RestController
     $res = $statisticsPlugin->CountAllJobs(true);
     return $response->withJson($res, 200);
   }
+
+  /**
+   * Get all the server jobs with status
+   *
+   * @param Request $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getAllServerJobsStatus($request, $response, $args)
+  {
+    if (!Auth::isAdmin()) {
+      $error = new Info(403, "Only Admin can access the endpoint.", InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+    $allJobStatusPlugin = $this->restHelper->getPlugin('ajax_all_job_status');
+    $symfonyRequest = new \Symfony\Component\HttpFoundation\Request();
+    $res = $allJobStatusPlugin->handle($symfonyRequest);
+    return $response->withJson(json_decode($res->getContent(), true), 200);
+  }
+
+  /**
+   * @brief Get the scheduler job options for a given operation
+   * @param Request $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getSchedulerJobOptionsByOperation($request, $response, $args)
+  {
+    $operation = $args['operationName'];
+    $adminSchedulerPlugin = $this->restHelper->getPlugin('admin_scheduler');
+    if (!Auth::isAdmin()) {
+      $error = new Info(403, "Only Admin can access the endpoint.", InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    if (!in_array($operation, array_keys($adminSchedulerPlugin->operation_array))) {
+      $allowedOperations = implode(', ', array_keys($adminSchedulerPlugin->operation_array));
+      $error = new Info(400, "Operation '$operation' not allowed. Allowed operations are: $allowedOperations", InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    $schedulerPlugin = $this->restHelper->getPlugin('ajax_admin_scheduler');
+    $symfonyRequest = new \Symfony\Component\HttpFoundation\Request();
+    $symfonyRequest->request->set('operation', $operation);
+    $symfonyRequest->request->set('fromRest', true);
+    $res = $schedulerPlugin->handle($symfonyRequest);
+    return $response->withJson($res, 200);
+  }
 }

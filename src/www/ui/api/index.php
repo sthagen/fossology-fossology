@@ -33,6 +33,7 @@ use Fossology\UI\Api\Controllers\JobController;
 use Fossology\UI\Api\Controllers\CopyrightController;
 use Fossology\UI\Api\Controllers\LicenseController;
 use Fossology\UI\Api\Controllers\MaintenanceController;
+use Fossology\UI\Api\Controllers\OverviewController;
 use Fossology\UI\Api\Controllers\ReportController;
 use Fossology\UI\Api\Controllers\SearchController;
 use Fossology\UI\Api\Controllers\ConfController;
@@ -241,8 +242,10 @@ $app->group('/jobs',
     $app->get('[/{id:\\d+}]', JobController::class . ':getJobs');
     $app->get('/all', JobController::class . ':getAllJobs');
     $app->get('/dashboard/statistics', JobController::class . ':getJobStatistics');
+    $app->get('/scheduler/operation/{operationName:[\\w\\- \\.]+}', JobController::class . ':getSchedulerJobOptionsByOperation');
     $app->post('', JobController::class . ':createJob');
     $app->get('/history', JobController::class . ':getJobsHistory');
+    $app->get('/dashboard', JobController::class . ':getAllServerJobsStatus');
     $app->delete('/{id:\\d+}/{queue:\\d+}', JobController::class . ':deleteJob');
     $app->any('/{params:.*}', BadRequestController::class);
   });
@@ -318,15 +321,29 @@ $app->group('/license',
     $app->get('', LicenseController::class . ':getAllLicenses');
     $app->post('/import-csv', LicenseController::class . ':handleImportLicense');
     $app->post('', LicenseController::class . ':createLicense');
+    $app->put('/verify/{shortname:.+}', LicenseController::class . ':verifyLicense');
+    $app->put('/merge/{shortname:.+}', LicenseController::class . ':mergeLicense');
     $app->get('/admincandidates', LicenseController::class . ':getCandidates');
     $app->get('/adminacknowledgements', LicenseController::class . ':getAllAdminAcknowledgements');
     $app->get('/stdcomments', LicenseController::class . ':getAllLicenseStandardComments');
     $app->put('/stdcomments', LicenseController::class . ':handleLicenseStandardComment');
+    $app->post('/suggest', LicenseController::class . ':getSuggestedLicense');
     $app->get('/{shortname:.+}', LicenseController::class . ':getLicense');
     $app->patch('/{shortname:.+}', LicenseController::class . ':updateLicense');
     $app->delete('/admincandidates/{id:\\d+}',
       LicenseController::class . ':deleteAdminLicenseCandidate');
     $app->put('/adminacknowledgements', LicenseController::class . ':handleAdminLicenseAcknowledgement');
+    $app->any('/{params:.*}', BadRequestController::class);
+  });
+
+////////////////////////////OVERVIEW/////////////////////
+$app->group('/overview',
+  function (\Slim\Routing\RouteCollectorProxy $app) {
+    $app->get('/database/contents', OverviewController::class . ':getDatabaseContents');
+    $app->get('/disk/usage', OverviewController::class . ':getDiskSpaceUsage');
+    $app->get('/info/php', OverviewController::class . ':getPhpInfo');
+    $app->get('/database/metrics', OverviewController::class . ':getDatabaseMetrics');
+    $app->get('/queries/active', OverviewController::class . ':getActiveQueries');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
