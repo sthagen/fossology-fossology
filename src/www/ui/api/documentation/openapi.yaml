@@ -2578,7 +2578,77 @@ paths:
           content:
             application/json:
               schema:
-                  $ref: '#/components/schemas/GetSchedulerOption'
+                $ref: '#/components/schemas/GetSchedulerOption'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+  /jobs/scheduler/operation/run:
+    parameters:
+      - name: job
+        required: false
+        description: Name of the selected job
+        in: query
+        schema:
+          type: string
+      - name: level
+        required: false
+        description: Level of the selected verbose
+        in: query
+        schema:
+          type: string
+      - name: priority
+        required: false
+        description: Priority option selected
+        in: query
+        schema:
+          type: string
+    post:
+      operationId: handleSchedulerRun
+      tags:
+        - Job
+        - Admin
+      summary: Run the scheduler
+      description: Run the scheduler with the selected options from a specific operation
+      requestBody:
+        description: Scheduler operation
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operation:
+                  type: string
+                  description: Operation to be run by the scheduler
+                  enum:
+                    - status
+                    - database
+                    - reload
+                    - agents
+                    - verbose
+                    - stop
+                    - restart
+                    - pause
+                    - priority
+      responses:
+        '200':
+          description: Scheduler run successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
         '403':
           description: Access denied
           content:
@@ -3096,7 +3166,6 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
-
   /customise:
     get:
       operationId: getCustomiseData
@@ -3114,6 +3183,37 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Customise'
+        '403':
+          description: The session owner is not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+    put:
+      operationId: updateCustomiseData
+      tags:
+        - Admin
+      summary: Update the Admin configuration data
+      description: >
+        Updates the admin configuration data.
+      requestBody:
+        description: Key and value to update.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetCustomiseInfo'
+      responses:
+        '200':
+          description: Config data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Info'
         '403':
           description: The session owner is not an admin
           content:
@@ -3614,6 +3714,37 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ConfResponse'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+    put:
+      operationId: updateConfData
+      tags:
+        - Upload
+      summary: Update the Conf page data
+      description: >
+        Updates the conf page data from the server
+      requestBody:
+        description: updateConfData Payload
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetConfInfo'
+      responses:
+        '200':
+          description: Config data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Info'
+        '403':
+          description: The session owner is not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
   /license:
@@ -4533,6 +4664,15 @@ components:
         reuse_info:
           type: object
           description: Reuse info of the file.
+    SetCustomiseInfo:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Key of the field to be updated
+        value:
+          type: string
+          description: Value of the field to be updated
     Job:
       type: object
       properties:
@@ -4750,6 +4890,17 @@ components:
         url:
           type: boolean
           description: URL(s) present in the scan code file.
+    SetConfInfo:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Key of the field to be updated
+        value:
+          type: string
+          description: |
+            Value of the field to be updated. If value is a JSON, it should be
+            sent as an encoded string.
     Folder:
       type: object
       properties:
@@ -5186,8 +5337,6 @@ components:
         option_value:
           description: If type is 'dropdown', provide options in format op1{val1}|op2{val2}|...
           type: string
-
-
     Group:
       description: Group object
       type: object
@@ -6348,7 +6497,7 @@ components:
         startTime:
           type: string
           format: date-time
-          example: "023-08-31 15:04:58.162799+02"
+          example: "2023-09-28T05:15:05.227Z"
         elapsed:
           type: string
           example: "00:01:06.961334"

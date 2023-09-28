@@ -205,6 +205,7 @@ $app->group('/uploads',
     $app->get('/{id:\\d+}/item/{itemId:\\d+}/info', FileInfoController::class . ':getItemInfo');
     $app->post('/{id:\\d+}/item/{itemId:\\d+}/bulk-scan', UploadTreeController::class . ':scheduleBulkScan');
     $app->get('/{id:\\d+}/conf', ConfController::class . ':getConfInfo');
+    $app->put('/{id:\\d+}/conf', ConfController::class . ':updateConfData');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
@@ -243,6 +244,7 @@ $app->group('/jobs',
     $app->get('/all', JobController::class . ':getAllJobs');
     $app->get('/dashboard/statistics', JobController::class . ':getJobStatistics');
     $app->get('/scheduler/operation/{operationName:[\\w\\- \\.]+}', JobController::class . ':getSchedulerJobOptionsByOperation');
+    $app->post('/scheduler/operation/run', JobController::class . ':handleRunSchedulerOption');
     $app->post('', JobController::class . ':createJob');
     $app->get('/history', JobController::class . ':getJobsHistory');
     $app->get('/dashboard', JobController::class . ':getAllServerJobsStatus');
@@ -288,6 +290,7 @@ $app->group('/report',
 $app->group('/customise',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('', CustomiseController::class . ':getCustomiseData');
+    $app->put('', CustomiseController::class . ':updateCustomiseData');
   });
 
 ////////////////////////////INFO/////////////////////
