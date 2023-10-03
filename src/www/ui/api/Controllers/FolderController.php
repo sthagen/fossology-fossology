@@ -12,11 +12,13 @@
 
 namespace Fossology\UI\Api\Controllers;
 
+use Fossology\Lib\Dao\FolderDao;
+use Fossology\UI\Ajax\AjaxFolderContents;
 use Fossology\UI\Api\Helper\ResponseHelper;
-use Psr\Http\Message\ServerRequestInterface;
 use Fossology\UI\Api\Models\Folder;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * @class FolderController
@@ -234,5 +236,102 @@ class FolderController extends RestController
       }
     }
     return $response->withJson($info->getArray(), $info->getCode());
+  }
+
+  /**
+   * Get the unlinkable folder contents (contents which are copied)
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getUnlinkableFolderContents($request, $response, $args)
+  {
+    $folderId = $args['id'];
+    $folderDao = $this->restHelper->getFolderDao();
+
+    if ($folderDao->getFolder($folderId) === null) {
+      $error = new Info(404, "Folder id not found!", InfoType::ERROR);
+    } else if (! $folderDao->isFolderAccessible($folderId, $this->restHelper->getUserId())) {
+      $error = new Info(403, "Folder is not accessible!", InfoType::ERROR);
+    }
+
+    if (isset($error)) {
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    /** @var AjaxFolderContents $folderContents */
+    $folderContents = $this->restHelper->getPlugin('foldercontents');
+    $symfonyRequest = new \Symfony\Component\HttpFoundation\Request();
+    $symfonyRequest->request->set('folder', $folderId);
+    $symfonyRequest->request->set('removable', 1);
+    $symfonyRequest->request->set('fromRest', true);
+    $res = $folderContents->handle($symfonyRequest);
+    return $response->withJson($res, 200);
+  }
+
+  /**
+   * Unlink the folder content from the parent
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function unlinkFolder($request, $response, $args)
+  {
+    $folderContentId = $args['contentId'];
+    if (!$this->dbHelper->doesIdExist("foldercontents", "foldercontents_pk", $folderContentId)) {
+      $info = new Info(404, "Folder content id not found!", InfoType::ERROR);
+    } else {
+      /** @var FolderDao $folderDao */
+      $folderDao = $this->container->get('dao.folder');
+      if ($folderDao->removeContent($folderContentId)) {
+        $info = new Info(200, "Folder unlinked successfully.", InfoType::INFO);
+      } else {
+        $info = new Info(400, "Content cannot be unlinked.", InfoType::ERROR);
+      }
+    }
+    return $response->withJson($info->getArray(), $info->getCode());
+  }
+
+  /**
+   * Get the all folder contents
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getAllFolderContents($request, $response, $args)
+  {
+    $folderId = $args['id'];
+    $folderDao = $this->restHelper->getFolderDao();
+
+    if ($folderDao->getFolder($folderId) === null) {
+      $error = new Info(404, "Folder id not found!", InfoType::ERROR);
+    } else if (! $folderDao->isFolderAccessible($folderId, $this->restHelper->getUserId())) {
+      $error = new Info(403, "Folder is not accessible!", InfoType::ERROR);
+    }
+
+    if (isset($error)) {
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+
+    /** @var AjaxFolderContents $folderContents */
+    $folderContents = $this->restHelper->getPlugin('foldercontents');
+    $symfonyRequest = new \Symfony\Component\HttpFoundation\Request();
+    $symfonyRequest->request->set('folder', $folderId);
+    $symfonyRequest->request->set('fromRest', true);
+    $contentList = $folderContents->handle($symfonyRequest);
+    $removableContents = $folderDao->getRemovableContents($folderId);
+
+    foreach ($contentList as &$value) {
+      if (in_array($value['id'], $removableContents)) {
+        $value['removable'] = true;
+      }
+    }
+    return $response->withJson($contentList, 200);
   }
 }

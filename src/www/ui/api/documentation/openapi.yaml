@@ -240,6 +240,68 @@ paths:
         default:
           $ref: '#/components/responses/defaultResponse'
 
+  /obligations/list:
+    get:
+      operationId: getObligationsList
+      tags:
+        - Admin
+      summary: Get the list of obligations
+      description: >
+        Get the list of obligations in the server.
+      responses:
+        '200':
+          description: The API information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObligationsList'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+  /obligations/{id}:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the obligation
+        in: path
+        schema:
+          type: integer
+    get:
+      operationId: getObligationsData
+      tags:
+        - Admin
+      summary: Get details of a particular obligation
+      description: >
+        Get the details of a particular obligation from the server.
+      responses:
+        '200':
+          description: The API information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObligationExtended'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+  /obligations:
+    get:
+      operationId: getAllObligationsData
+      tags:
+        - Admin
+      summary: Get details of a all obligations
+      description: >
+        Get the details of all obligations from the server.
+      responses:
+        '200':
+          description: The API information
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ObligationExtended'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
   /uploads/{id}:
     parameters:
       - name: id
@@ -2371,8 +2433,8 @@ paths:
         schema:
           type: string
           enum:
-              - active
-              - inactive
+            - active
+            - inactive
       - name: limit
         description: Limits of responses per request
         required: false
@@ -2724,7 +2786,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Info'
         default:
-            $ref: '#/components/responses/defaultResponse'
+          $ref: '#/components/responses/defaultResponse'
 
   /jobs/dashboard/statistics:
     get:
@@ -3101,6 +3163,76 @@ paths:
         default:
           $ref: '#/components/responses/defaultResponse'
 
+  /folders/contents/{contentId}/unlink:
+    parameters:
+      - name: contentId
+        in: path
+        required: true
+        description: ID of the content
+        schema:
+          type: integer
+    put:
+      operationId: unlinkContent
+      tags:
+        - Folders
+      summary: Unlink a content from a folder
+      description:
+        Unlink a content from a folder
+      responses:
+        '200':
+          description: Content is unlinked from the folder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Folder content does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+  /folders/{id}/contents:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the folder
+        schema:
+          type: integer
+    get:
+      operationId: getAllFolderContents
+      tags:
+        - Folders
+      summary: Get all contents of a folder
+      description:
+        Get all contents of a folder by id
+      responses:
+        '200':
+          description: Contents of the given folder
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GetFolderContent'
+        '403':
+          description: Folder is not accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Folder does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
   /uploads/{id}/item/{ItemId}/totalcopyrights:
     parameters:
       - name: id
@@ -3122,8 +3254,8 @@ paths:
         schema:
           type: string
           enum:
-              - active
-              - inactive
+            - active
+            - inactive
     get:
       operationId: getTotalFileCopyrights
       tags:
@@ -3166,6 +3298,7 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+
   /customise:
     get:
       operationId: getCustomiseData
@@ -3216,6 +3349,60 @@ paths:
                   $ref: '#/components/schemas/Info'
         '403':
           description: The session owner is not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+  /customise/banner:
+    get:
+      operationId: getBannerMessage
+      tags:
+        - info
+      summary: Get the Banner message
+      description: >
+        Returns the Banner message from the server
+      responses:
+        '200':
+          description: Banner message
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "This is a banner message"
+        default:
+          $ref: '#/components/responses/defaultResponse'
+  /folders/{id}/contents/unlinkable:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the folder
+        schema:
+          type: integer
+    get:
+      operationId: getUnlinkableContents
+      tags:
+        - Folders
+      summary: Get contents of a folder which can be unlinked
+      description:
+        Get unlinkable contents of a folder by id. These contents are copied.
+      responses:
+        '200':
+          description: Unlinkable contents of the given folder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetFolderContent'
+        '403':
+          description: Folder is not accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Folder does not exist
           content:
             application/json:
               schema:
@@ -3904,6 +4091,38 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+  /license/export-csv:
+    get:
+      operationId: exportLicense
+      parameters:
+        - name: licenseId
+          description: License id to export, 0 for all
+          in: query
+          required: false
+          default: 0
+          schema:
+            type: int
+      tags:
+        - License
+      summary: Export a csv license
+      description: >
+        Export a csv license
+      responses:
+        '200':
+          description: Successfully exported
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: Route is not accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
   /license/{shortname}:
     parameters:
       - name: shortname
@@ -4201,7 +4420,7 @@ paths:
         Verify a license as new or variant of another license
       requestBody:
         description: The shortname of the parent license |
-           Same name if it's to be verified as a new license
+          Same name if it's to be verified as a new license
         required: true
         content:
           application/json:
@@ -4346,7 +4565,7 @@ paths:
           content:
             application/json:
               schema:
-                  $ref: '#/components/schemas/GetPHPInfo'
+                $ref: '#/components/schemas/GetPHPInfo'
         '403':
           description: Access denied
           content:
@@ -4583,6 +4802,18 @@ components:
           nullable: true
         hash:
           $ref: '#/components/schemas/Hash'
+    GetFolderContent:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Id of the folder content.
+        content:
+          type: string
+          description: Content of the folder.
+        removable:
+          type: boolean
+          description: Is the folder removable.
     UploadSummary:
       type: object
       properties:
@@ -5319,12 +5550,12 @@ components:
           description: field type
           type: string
           enum:
-          - int
-          - text
-          - textarea
-          - password
-          - dropdown
-          - boolean
+            - int
+            - text
+            - textarea
+            - password
+            - dropdown
+            - boolean
         label:
           description: field label
           type: string
@@ -5524,16 +5755,16 @@ components:
         successfulAgents:
           type: array
           items:
-              properties:
-                agent_id:
-                  type: integer
-                  example: 20
-                agent_rev:
-                  type: string
-                  example: "4.1.0.282-rc1.ffb851"
-                agent_name:
-                  type: string
-                  example: "reso"
+            properties:
+              agent_id:
+                type: integer
+                example: 20
+              agent_rev:
+                type: string
+                example: "4.1.0.282-rc1.ffb851"
+              agent_name:
+                type: string
+                example: "reso"
         uploadId:
           type: integer
           example: 10
@@ -5953,6 +6184,45 @@ components:
         spdx_id:
           type: string
           example: LicenseRef-fossology-ACE
+    ObligationsList:
+      type: array
+      items:
+        properties:
+          id:
+            type: integer
+            example: 29
+          obligation_topic:
+            type: string
+            example: Obligation text
+    ObligationExtended:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Obligation'
+      properties:
+        modification:
+          type: boolean
+          description: Applies on modified text?
+        active:
+          type: boolean
+          description: Obligation is active/inactive
+        textUpdatable:
+          type: boolean
+          description: Obligation text can be updated?
+        licenses:
+          type: array
+          description: List of associated licenses with obligation
+          items:
+            type: string
+            description: Shortname of license
+        candidateLicenses:
+          type: array
+          description: List of associated candidate licenses with obligation
+          items:
+            type: string
+            description: Shortname of candidate license
+        hash:
+          type: string
+          description: MD5 hash of obligation text
     AddMember:
       description: UserMember options
       type: object

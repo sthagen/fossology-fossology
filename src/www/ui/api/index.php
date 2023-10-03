@@ -24,23 +24,24 @@ require_once dirname(dirname(dirname(dirname(__FILE__)))) .
 use Fossology\Lib\Util\TimingLogger;
 use Fossology\UI\Api\Controllers\AuthController;
 use Fossology\UI\Api\Controllers\BadRequestController;
+use Fossology\UI\Api\Controllers\ConfController;
+use Fossology\UI\Api\Controllers\CopyrightController;
+use Fossology\UI\Api\Controllers\CustomiseController;
+use Fossology\UI\Api\Controllers\FileInfoController;
 use Fossology\UI\Api\Controllers\FileSearchController;
 use Fossology\UI\Api\Controllers\FolderController;
 use Fossology\UI\Api\Controllers\GroupController;
 use Fossology\UI\Api\Controllers\InfoController;
-use Fossology\UI\Api\Controllers\FileInfoController;
 use Fossology\UI\Api\Controllers\JobController;
-use Fossology\UI\Api\Controllers\CopyrightController;
 use Fossology\UI\Api\Controllers\LicenseController;
 use Fossology\UI\Api\Controllers\MaintenanceController;
+use Fossology\UI\Api\Controllers\ObligationController;
 use Fossology\UI\Api\Controllers\OverviewController;
 use Fossology\UI\Api\Controllers\ReportController;
 use Fossology\UI\Api\Controllers\SearchController;
-use Fossology\UI\Api\Controllers\ConfController;
 use Fossology\UI\Api\Controllers\UploadController;
 use Fossology\UI\Api\Controllers\UploadTreeController;
 use Fossology\UI\Api\Controllers\UserController;
-use Fossology\UI\Api\Controllers\CustomiseController;
 use Fossology\UI\Api\Helper\ResponseFactoryHelper;
 use Fossology\UI\Api\Helper\ResponseHelper;
 use Fossology\UI\Api\Middlewares\FossologyInitMiddleware;
@@ -223,6 +224,15 @@ $app->group('/users',
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
+////////////////////////////OBLIGATIONS/////////////////////
+$app->group('/obligations',
+  function (\Slim\Routing\RouteCollectorProxy $app) {
+    $app->get('/list', ObligationController::class . ':obligationsList');
+    $app->get('/{id:\\d+}', ObligationController::class . ':obligationsDetails');
+    $app->get('', ObligationController::class . ':obligationsAllDetails');
+    $app->any('/{params:.*}', BadRequestController::class);
+  });
+
 ////////////////////////////GROUPS/////////////////////
 $app->group('/groups',
   function (\Slim\Routing\RouteCollectorProxy $app) {
@@ -274,6 +284,9 @@ $app->group('/folders',
     $app->delete('/{id:\\d+}', FolderController::class . ':deleteFolder');
     $app->patch('/{id:\\d+}', FolderController::class . ':editFolder');
     $app->put('/{id:\\d+}', FolderController::class . ':copyFolder');
+    $app->get('/{id:\\d+}/contents/unlinkable', FolderController::class . ':getUnlinkableFolderContents');
+    $app->put('/contents/{contentId:\\d+}/unlink', FolderController::class . ':unlinkFolder');
+    $app->get('/{id:\\d+}/contents', FolderController::class . ':getAllFolderContents');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
@@ -291,6 +304,8 @@ $app->group('/customise',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('', CustomiseController::class . ':getCustomiseData');
     $app->put('', CustomiseController::class . ':updateCustomiseData');
+    $app->get('/banner', CustomiseController::class . ':getBannerMessage');
+    $app->any('/{params:.*}', BadRequestController::class);
   });
 
 ////////////////////////////INFO/////////////////////
@@ -323,6 +338,7 @@ $app->group('/license',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('', LicenseController::class . ':getAllLicenses');
     $app->post('/import-csv', LicenseController::class . ':handleImportLicense');
+    $app->get('/export-csv', LicenseController::class . ':exportAdminLicenseToCSV');
     $app->post('', LicenseController::class . ':createLicense');
     $app->put('/verify/{shortname:.+}', LicenseController::class . ':verifyLicense');
     $app->put('/merge/{shortname:.+}', LicenseController::class . ':mergeLicense');
