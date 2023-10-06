@@ -897,8 +897,8 @@ class LicenseController extends RestController
     }
     $query = $request->getQueryParams();
     $rf = 0;
-    if (array_key_exists('licenseId', $query)) {
-      $rf = intval($query['licenseId']);
+    if (array_key_exists('id', $query)) {
+      $rf = intval($query['id']);
     }
     if ($rf != 0 &&
         (! $this->dbHelper->doesIdExist("license_ref", "rf_pk", $rf) &&
