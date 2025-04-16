@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: © 2017-2023 Siemens AG
 # SPDX-FileCopyrightText: © 2021 Orange by Piotr Pszczola <piotr.pszczola@orange.com>
+# SPDX-FileCopyrightText: © 2025 Tiyasa Kundu <tiyasakundu20@gmail.com>
 
 # SPDX-License-Identifier: GPL-2.0-only
 
@@ -5330,6 +5331,18 @@ components:
         ojoDecider:
           type: boolean
           description: Scanners matches if Ojo or REUSE.Software findings are no contradiction with other findings.
+        concludeLicenseType:
+          type: string
+          description: |
+            Auto conclude license if they are of provided type.
+            Omit the field or keep as empty string to not use this option.
+          example: Permissive
+        copyrightDeactivation:
+          type: boolean
+          description: Deactivate false positive copyrights (experimental).
+        copyrightClutterRemoval:
+          type: boolean
+          description: Deactivate false positive copyrights and remove clutter from them (experimental).
     ScanOptions:
       type: object
       properties:
@@ -5668,6 +5681,9 @@ components:
         ecc:
           type: boolean
           description: Should ECC Analysis be run on this upload.
+        ipra:
+          type: boolean
+          description: Should IPRA Analysis be run on this upload.
         keyword:
           type: boolean
           description: Should keyword Analysis be run on this upload.
@@ -5683,13 +5699,13 @@ components:
         ojo:
           type: boolean
           description: Should OJO Analysis be run on this upload.
-        package:
+        pkgagent:
           type: boolean
           description: Should Package Analysis be run on this upload.
         reso:
           type: boolean
           description: Should REUSE.Software Analysis be run on this upload.
-        heritage:
+        softwareHeritage:
           type: boolean
           description: Should Software Heritage Analysis be run on this upload.
     Reuser:

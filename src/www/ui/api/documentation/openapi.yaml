@@ -5569,6 +5569,12 @@ components:
             Auto conclude license if they are of provided type.
             Omit the field or keep as empty string to not use this option.
           example: Permissive
+        copyright_deactivation:
+          type: boolean
+          description: Deactivate false positive copyrights (experimental).
+        copyright_clutter_removal:
+          type: boolean
+          description: Deactivate false positive copyrights and remove clutter from them (experimental).
     ScanOptions:
       type: object
       properties:
@@ -5861,6 +5867,9 @@ components:
         ecc:
           type: boolean
           description: Should ECC Analysis be run on this upload.
+        patent:
+          type: boolean
+          description: Should IPRA Analysis be run on this upload.
         keyword:
           type: boolean
           description: Should keyword Analysis be run on this upload.
