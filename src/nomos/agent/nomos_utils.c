@@ -11,6 +11,8 @@
 #include "nomos_utils.h"
 #include "nomos.h"
 
+extern int should_connect_to_db;  /* Global variable to control DB connection */
+
 #define FUNCTION
 
 /**
@@ -508,6 +510,8 @@ FUNCTION void parseLicenseList()
  */
 FUNCTION void Usage(char *Name)
 {
+  /* Disable database connection when showing usage */
+  should_connect_to_db = 0;
   printf("Usage: %s [options] [file [file [...]]\n", Name);
   printf("  -h   :: help (print this message), then exit.\n");
   printf("  -i   :: initialize the database, then exit.\n");
@@ -686,9 +690,6 @@ FUNCTION int updateLicenseHighlighting(cacheroot_t *pcroot){
   }
   PGresult *result;
 
-
-
-
 #ifdef GLOBAL_DEBUG
   printf("%s %s %i \n", cur.filePath,cur.compLic , cur.theMatches->len);
 #endif
@@ -710,9 +711,13 @@ FUNCTION int updateLicenseHighlighting(cacheroot_t *pcroot){
   for (i = 0; i < cur.keywordPositions->len; ++i)
   {
     MatchPositionAndType* ourMatchv = getMatchfromHighlightInfo(cur.keywordPositions, i);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+    // If uninitialized, the loop will not start
     result = fo_dbManager_ExecPrepared(
                 preparedKeywords,
                 cur.pFileFk, ourMatchv->start, ourMatchv->end - ourMatchv->start);
+#pragma GCC diagnostic pop
     if (result)
     {
       PQclear(result);
@@ -746,11 +751,15 @@ FUNCTION int updateLicenseHighlighting(cacheroot_t *pcroot){
         //! the license File ID was never set and we should not insert it in the database
         continue;
       }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+      // If uninitialized, the loop will not start
       result = fo_dbManager_ExecPrepared(
                   preparedLicenses,
         ourLicence->licenseFileId,
         ourMatchv->start, ourMatchv->end - ourMatchv->start
       );
+#pragma GCC diagnostic pop
       if (result == NULL)
       {
         return (FALSE);
@@ -1016,7 +1025,3 @@ inline bool clearLastElementOfLicenceBuffer(){
     g_array_remove_index(cur.indexList, cur.indexList->len -1);
   return true;
 }
-
-
-
-
