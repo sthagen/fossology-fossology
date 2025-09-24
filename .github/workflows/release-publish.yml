@@ -166,7 +166,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: |
@@ -174,7 +174,7 @@ jobs:
           libjson-c-dev librpm-dev libboost-all-dev libxslt1-dev
 
       - name: Setup CMake
-        uses: lukka/get-cmake@v4.0.3
+        uses: lukka/get-cmake@v4.1.1
 
       - name: Build Nomossa
         run: |
