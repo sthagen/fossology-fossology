@@ -355,6 +355,7 @@ class ui_view_info extends FO_Plugin
       $vars['packageAgentStatus'] = 1;
       $vars['trackback_uri'] = Traceback_uri() .
       "?mod=schedule_agent&upload=$Upload&agent=agent_pkgagent";
+      $vars['activeScript'] = ActiveHTTPscript("Schedule");
       return ($vars);
     }
     $sql = "SELECT mimetype_name
@@ -412,7 +413,8 @@ class ui_view_info extends FO_Plugin
         }
         $this->dbManager->freeResult($result);
       }
-    } elseif ($MIMETYPE == "application/x-debian-package") {
+    } elseif ($MIMETYPE == "application/x-debian-package" ||
+              $MIMETYPE == "application/vnd.debian.binary-package") {
       $vars['packageType'] = _("Debian Binary Package\n");
 
       $sql = "SELECT *
@@ -592,7 +594,7 @@ class ui_view_info extends FO_Plugin
     $this->vars['micromenu'] = Dir2Browse("browse", $itemId, null, $showBox = 0, "View-Meta");
 
     $this->vars += $this->ShowTagInfo($uploadId, $itemId);
-    $this->vars += $this->ShowPackageinfo($uploadId, $itemId, 1);
+    $this->vars += $this->ShowPackageInfo($uploadId, $itemId, 1);
     $this->vars += $this->ShowMetaView($uploadId, $itemId);
     $this->vars += $this->ShowSightings($uploadId, $itemId);
     $this->vars += $this->ShowView($uploadId, $itemId);
